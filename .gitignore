@@ -28,6 +28,9 @@ desktop.ini
 # local design scratch material, not a project deliverable
 /fandraft-image
 
+# one-off combined migration script for pasting into the Supabase SQL Editor
+/draft-house-schema.sql
+
 # debug
 npm-debug.log*
 yarn-debug.log*

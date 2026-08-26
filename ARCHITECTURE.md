@@ -135,7 +135,7 @@ See [REALTIME.md](docs/REALTIME.md) for detailed real-time synchronization.
 **Rules**:
 - No external identity providers (Google, Apple, Facebook)
 - Username/password only — users never provide a real email address
-- Supabase Auth requires an email identifier internally; signup generates a synthetic one (`{username}@drafthouse.internal`) behind the scenes (see [DATABASE.md](docs/DATABASE.md#1-users))
+- Supabase Auth requires an email identifier internally; signup generates a synthetic one (`{username}@drafthouse.invalid`) behind the scenes (see [DATABASE.md](docs/DATABASE.md#1-users))
 - Sessions managed by Supabase Auth
 - Commissioner verification for admin operations
 

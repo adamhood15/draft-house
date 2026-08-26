@@ -30,7 +30,7 @@ users
 - Display name is the name shown in leagues and chat
 - Avatar is optional (may be used for team profile popups)
 - Passwords managed entirely by Supabase Auth (never directly in application)
-- **Auth strategy**: Users sign up with a username and password only — no real email address is ever collected or required. Supabase Auth requires an email identifier internally, so signup generates a synthetic one (e.g. `{username}@drafthouse.internal`) and stores it in `auth_email`. This field is never shown to users and is not a contact address.
+- **Auth strategy**: Users sign up with a username and password only — no real email address is ever collected or required. Supabase Auth requires an email identifier internally, so signup generates a synthetic one (e.g. `{username}@drafthouse.invalid`) and stores it in `auth_email`. This field is never shown to users and is not a contact address. The domain is `.invalid` specifically — RFC 2606 reserves it for exactly this purpose; the more obvious-looking `.internal` is a *different* reserved TLD (RFC 9476) that Supabase Auth's email validator actually rejects.
 
 ---
 
