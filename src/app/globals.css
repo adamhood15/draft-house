@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+/* "Turf & Floodlight" palette — docs/DESIGN.md §3. No dark mode defined yet,
+   so the brand cream/ink pair is fixed regardless of OS color scheme. */
+:root {
+  --background: #fffbea;
+  --ink: #161311;
+  --green: #1f8a4c;
+  --gold: #ffb703;
+  --purple: #7b2ff7;
+  --pink: #ff4d6d;
+  --blue: #1971c2;
+  --teal: #0f9b8e;
+  --orange: #f76707;
+  --flex-gray: #8a7f6b;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-ink: var(--ink);
+  --color-green: var(--green);
+  --color-gold: var(--gold);
+  --color-purple: var(--purple);
+  --color-pink: var(--pink);
+  --color-blue: var(--blue);
+  --color-teal: var(--teal);
+  --color-orange: var(--orange);
+  --color-flex-gray: var(--flex-gray);
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-archivo-black);
+}
+
+body {
+  background: var(--background);
+  color: var(--ink);
+}
