@@ -19,3 +19,7 @@ export const initialLookupState: LookupState = { error: null, leagues: null };
 export type SettingsState = { error: string | null };
 
 export const initialSettingsState: SettingsState = { error: null };
+
+export type ClaimState = { error: string | null };
+
+export const initialClaimState: ClaimState = { error: null };

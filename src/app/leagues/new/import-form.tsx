@@ -3,13 +3,20 @@
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import { importLeague, lookupLeagues } from "@/lib/leagues/actions";
-import { initialImportState, initialLookupState } from "@/lib/leagues/state";
+import { initialImportState } from "@/lib/leagues/state";
 import type { LookupLeague } from "@/lib/leagues/state";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
-export function ImportForm() {
-  const [lookupState, lookupAction] = useActionState(lookupLeagues, initialLookupState);
+export function ImportForm({ initialLeagues }: { initialLeagues?: LookupLeague[] }) {
+  // A pre-fetched list (this user's Sleeper identity is already known — see
+  // getAvailableSleeperLeagues) seeds useActionState's initial value, so the
+  // "Different username" flow below (which just compares against whatever
+  // lookupState.leagues currently is) works unchanged for either source.
+  const [lookupState, lookupAction] = useActionState(lookupLeagues, {
+    error: null,
+    leagues: initialLeagues ?? null,
+  });
   const [importState, importAction, importPending] = useActionState(
     importLeague,
     initialImportState
@@ -26,7 +33,11 @@ export function ImportForm() {
     return (
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <p className="text-sm text-ink/70">Select a league to import:</p>
+          <p className="text-sm text-ink/70">
+            {leagues.length > 0
+              ? "Select a league to import:"
+              : "You've already imported all your Sleeper leagues."}
+          </p>
           <button
             type="button"
             onClick={() => setDismissed(leagues)}

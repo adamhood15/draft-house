@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/lib/auth/actions";
+import { getAvailableSleeperLeagues } from "@/lib/leagues/import";
 import { Button } from "@/components/ui/button";
 import { Wordmark } from "@/components/ui/wordmark";
+import { AvailableLeagues } from "@/components/available-leagues";
 
 function leagueHref(league: { id: string; draft_status: string }) {
   switch (league.draft_status) {
@@ -25,6 +27,7 @@ export default async function Home() {
 
   let displayName: string | null = null;
   let leagues: { id: string; name: string; season: number; draft_status: string }[] = [];
+  let availableLeagues: Awaited<ReturnType<typeof getAvailableSleeperLeagues>> = null;
 
   if (user) {
     const { data: userData } = await supabase
@@ -42,6 +45,12 @@ export default async function Home() {
       .is("deleted_at", null)
       .order("created_at", { ascending: false });
     leagues = leagueData ?? [];
+
+    // Only worth checking once they've already synced at least one league —
+    // otherwise "Import a League" below is the obvious next step already.
+    if (leagues.length > 0) {
+      availableLeagues = await getAvailableSleeperLeagues(user.id);
+    }
   }
 
   return (
@@ -69,6 +78,17 @@ export default async function Home() {
                 </Link>
               ))}
             </div>
+          )}
+
+          {availableLeagues && availableLeagues.length > 0 && (
+            <AvailableLeagues
+              leagues={availableLeagues.map((l) => ({
+                league_id: l.league_id,
+                name: l.name,
+                season: l.season,
+                total_rosters: l.total_rosters,
+              }))}
+            />
           )}
 
           <div className="flex gap-3">

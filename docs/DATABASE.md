@@ -21,6 +21,8 @@ users
 ├── display_name (VARCHAR)
 ├── avatar_url (TEXT, optional)
 ├── password_hash (handled by Supabase Auth)
+├── sleeper_user_id (VARCHAR, optional, unique) -- set the first time this user looks up leagues by Sleeper username
+├── sleeper_username (VARCHAR, optional) -- the Sleeper username that resolved to sleeper_user_id
 ├── created_at (TIMESTAMP)
 └── updated_at (TIMESTAMP)
 ```
@@ -30,6 +32,7 @@ users
 - Display name is the name shown in leagues and chat
 - Avatar is optional (may be used for team profile popups)
 - Passwords managed entirely by Supabase Auth (never directly in application)
+- `sleeper_user_id`/`sleeper_username` are set best-effort the first time a commissioner looks up leagues to import (see [SLEEPER.md](SLEEPER.md#import-flow)) — this remembers their Sleeper identity so the username is never asked for twice, and lets the home page show their other not-yet-imported Sleeper leagues. Deliberately not a cached leagues list — that's fetched live from Sleeper each time, since a stored snapshot would drift as league membership changes.
 - **Auth strategy**: Users sign up with a username and password only — no real email address is ever collected or required. Supabase Auth requires an email identifier internally, so signup generates a synthetic one (e.g. `{username}@drafthouse.invalid`) and stores it in `auth_email`. This field is never shown to users and is not a contact address. The domain is `.invalid` specifically — RFC 2606 reserves it for exactly this purpose; the more obvious-looking `.internal` is a *different* reserved TLD (RFC 9476) that Supabase Auth's email validator actually rejects.
 
 ---
@@ -53,6 +56,7 @@ leagues
 ├── league_settings (JSONB) -- additional settings from Sleeper
 ├── draft_start_time (TIMESTAMP, optional)
 ├── draft_status (VARCHAR) -- "setup", "lobby", "drafting", "complete"
+├── invite_token (UUID, unique) -- shareable invite link is /invite/{invite_token}
 ├── created_at (TIMESTAMP)
 ├── updated_at (TIMESTAMP)
 └── deleted_at (TIMESTAMP, nullable) -- soft delete for commissioners who import wrong league
@@ -64,6 +68,7 @@ leagues
 - `positions` is JSON to support flexible roster construction
 - `league_settings` stores any additional Sleeper settings not explicitly modeled
 - Soft delete with `deleted_at` allows recovery and avoids orphaning related records
+- `invite_token` is separate from `id` so the link can be regenerated (invalidating the old one) without touching the league's real identity. Auto-generated at import time — see [SLEEPER.md](SLEEPER.md#import-flow). Looking a league up by `invite_token` necessarily happens before the viewer is a league member, so it goes through the admin client like import does — see `leagues_select`'s `is_league_member` requirement in [REALTIME.md](REALTIME.md#security--authorization).
 
 ---
 

@@ -58,7 +58,7 @@ export async function lookupSleeperLeagues(
     throw new LeagueImportError("Enter your Sleeper username.", 400);
   }
 
-  await requireUser();
+  const user = await requireUser();
 
   try {
     const sleeperUser = await fetchSleeperUserByUsername(username);
@@ -72,6 +72,16 @@ export async function lookupSleeperLeagues(
       );
     }
 
+    // Best-effort: remember this Sleeper identity so the username is never
+    // asked for twice (see docs/DATABASE.md#1-users). Never blocks the
+    // lookup itself — a unique-constraint hit (already linked to a
+    // different account) or any other failure here is fine to ignore.
+    const supabase = await createClient();
+    await supabase
+      .from("users")
+      .update({ sleeper_user_id: sleeperUser.user_id, sleeper_username: sleeperUser.username })
+      .eq("id", user.id);
+
     return { leagues };
   } catch (error) {
     if (error instanceof LeagueImportError) throw error;
@@ -82,6 +92,45 @@ export async function lookupSleeperLeagues(
       throw new LeagueImportError("Unable to reach Sleeper. Please try again.", 502);
     }
     throw error;
+  }
+}
+
+/**
+ * Sleeper leagues this user belongs to that aren't in Draft House yet, for
+ * the "available to import" shortcuts on the home page and leagues/new. Live
+ * lookup every call, not a cached list — see docs/DATABASE.md#1-users for why.
+ *
+ * Returns null when we don't know this user's Sleeper identity yet (never
+ * looked up), vs. an empty array when we do but nothing's new — callers use
+ * that distinction to decide whether to still show the username prompt.
+ */
+export async function getAvailableSleeperLeagues(
+  userId: string
+): Promise<SleeperLeagueSummary[] | null> {
+  const supabase = await createClient();
+
+  const { data: userRow } = await supabase
+    .from("users")
+    .select("sleeper_user_id")
+    .eq("id", userId)
+    .single();
+
+  if (!userRow?.sleeper_user_id) {
+    return null;
+  }
+
+  // RLS (leagues_select) already scopes this to leagues the user belongs to
+  // in any capacity, commissioner or joined.
+  const { data: memberLeagues } = await supabase.from("leagues").select("sleeper_league_id");
+  const importedIds = new Set((memberLeagues ?? []).map((l) => l.sleeper_league_id));
+
+  try {
+    const state = await fetchNflState();
+    const leagues = await fetchSleeperLeaguesForUser(userRow.sleeper_user_id, state.season);
+    return leagues.filter((l) => !importedIds.has(l.league_id));
+  } catch {
+    // Sleeper being unreachable shouldn't break the page — just show nothing new.
+    return [];
   }
 }
 

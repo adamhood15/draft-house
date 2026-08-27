@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getAvailableSleeperLeagues } from "@/lib/leagues/import";
 import { ImportForm } from "./import-form";
 
 export default async function NewLeaguePage() {
@@ -12,17 +13,31 @@ export default async function NewLeaguePage() {
     redirect("/login?next=/leagues/new");
   }
 
+  // null = never looked up a Sleeper username before -> ask for it.
+  // Otherwise their identity's already known -> skip straight to the list.
+  const availableLeagues = await getAvailableSleeperLeagues(user.id);
+
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-8 p-6">
       <div className="max-w-sm text-center">
         <h1 className="font-display text-2xl">IMPORT YOUR LEAGUE</h1>
         <p className="text-sm text-ink/70">
-          Enter your Sleeper username to see your leagues, then pick one to bring in its roster
-          construction, teams, and draft settings.
+          {availableLeagues
+            ? "Pick a league to import."
+            : "Enter your Sleeper username to see your leagues, then pick one to bring in its roster construction, teams, and draft settings."}
         </p>
       </div>
       <div className="w-full max-w-sm rounded-xl border-2 border-ink bg-white p-6 shadow-[5px_5px_0_var(--ink)]">
-        <ImportForm />
+        <ImportForm
+          initialLeagues={
+            availableLeagues?.map((l) => ({
+              league_id: l.league_id,
+              name: l.name,
+              season: l.season,
+              total_rosters: l.total_rosters,
+            })) ?? undefined
+          }
+        />
       </div>
     </div>
   );
