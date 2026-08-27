@@ -42,6 +42,15 @@ function buildPositionsJson(rosterPositions) {
   return positions;
 }
 
+// Sleeper has no single "scoring_format" field — derive it from
+// scoring_settings.rec (points per reception), same as src/lib/sleeper/transform.ts.
+function deriveScoringFormat(scoringSettings) {
+  const rec = scoringSettings?.rec ?? 0;
+  if (rec >= 1) return "ppr";
+  if (rec > 0) return "half_ppr";
+  return "std";
+}
+
 async function seedDatabase() {
   try {
     console.log("Starting database seed from Sleeper...\n");
@@ -105,8 +114,11 @@ async function seedDatabase() {
     // League
     // ------------------------------------------------------------------
     console.log("Creating league...");
-    const scoringFormat = league.settings?.scoring_format || "ppr";
-    const rostersPerTeam = league.settings?.roster_positions?.length || 15;
+    // roster_positions and scoring_settings are top-level fields on the
+    // Sleeper league object, not nested under `settings` — verified against
+    // the live API (see src/lib/sleeper/transform.ts).
+    const scoringFormat = deriveScoringFormat(league.scoring_settings);
+    const rostersPerTeam = league.roster_positions?.length || 15;
 
     const { data: leagueData, error: leagueError } = await supabase
       .from("leagues")
@@ -119,7 +131,7 @@ async function seedDatabase() {
         scoring_format: scoringFormat,
         draft_format: "snake",
         rosters_per_team: rostersPerTeam,
-        positions: buildPositionsJson(league.settings?.roster_positions),
+        positions: buildPositionsJson(league.roster_positions),
         league_settings: league.settings || {},
         draft_status: "setup",
       })
