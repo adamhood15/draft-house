@@ -15,3 +15,7 @@ export type LookupState = {
 };
 
 export const initialLookupState: LookupState = { error: null, leagues: null };
+
+export type SettingsState = { error: string | null };
+
+export const initialSettingsState: SettingsState = { error: null };
