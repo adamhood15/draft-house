@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import { importLeague, lookupLeagues } from "@/lib/leagues/actions";
 import { initialImportState, initialLookupState } from "@/lib/leagues/state";
 import type { LookupLeague } from "@/lib/leagues/state";
@@ -52,6 +53,17 @@ export function ImportForm() {
         {importState.error && (
           <p role="alert" className="text-sm font-semibold text-pink">
             {importState.error}
+            {importState.existingLeagueId && (
+              <>
+                {" "}
+                <Link
+                  href={`/leagues/${importState.existingLeagueId}/setup`}
+                  className="underline"
+                >
+                  Go to it
+                </Link>
+              </>
+            )}
           </p>
         )}
       </div>

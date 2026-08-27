@@ -76,6 +76,7 @@ draft_settings
 ├── id (UUID, primary key)
 ├── league_id (FK → leagues.id, unique)
 ├── seconds_per_pick (INTEGER) -- e.g., 60
+├── timer_enabled (BOOLEAN) -- default true; false = draft starts with unlimited time, no countdown
 ├── allow_pick_trading (BOOLEAN)
 ├── auto_draft_enabled (BOOLEAN)
 ├── auto_draft_type (VARCHAR) -- "ffc_adp" (default, free), "fantasypros_premium" (optional, requires commissioner-supplied key)
@@ -88,6 +89,7 @@ draft_settings
 - One row per league
 - `allow_pick_trading` is in MVP scope. v1 trades support 2-team propose/accept/reject only; counter-offers are post-MVP (see [DRAFT_ENGINE.md](DRAFT_ENGINE.md#trade-offers))
 - `auto_draft_type` determines how empty teams are drafted
+- `timer_enabled` is the commissioner's pre-draft default — set on the league setup page, before any live draft state exists. It seeds `draft_state.timer_active` when the draft is initialized. From then on, `timer_active` is the live, in-draft-room toggle (see [DRAFT_ENGINE.md](DRAFT_ENGINE.md#timer-management)); the two are deliberately separate columns rather than one shared flag, since a commissioner can still turn the timer on/off mid-draft regardless of how it started.
 
 ---
 

@@ -44,7 +44,7 @@ export async function importLeague(
     ({ leagueId } = await importSleeperLeague(sleeperLeagueId));
   } catch (error) {
     if (error instanceof LeagueImportError) {
-      return { error: error.message };
+      return { error: error.message, existingLeagueId: error.existingLeagueId ?? null };
     }
     throw error;
   }

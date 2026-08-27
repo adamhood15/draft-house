@@ -45,7 +45,7 @@ export default async function LeagueSetupPage({
 
   const { data: draftSettings } = await supabase
     .from("draft_settings")
-    .select("seconds_per_pick, allow_pick_trading, updated_at")
+    .select("seconds_per_pick, timer_enabled, allow_pick_trading, updated_at")
     .eq("league_id", leagueId)
     .single();
 

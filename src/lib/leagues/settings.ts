@@ -61,6 +61,7 @@ export async function updateDraftSettings(
   formData: FormData
 ): Promise<SettingsState> {
   const secondsPerPick = Number(formData.get("seconds_per_pick"));
+  const timerEnabled = formData.get("timer_enabled") === "on";
   const allowPickTrading = formData.get("allow_pick_trading") === "on";
   const draftStartTimeRaw = String(formData.get("draft_start_time") ?? "");
 
@@ -72,7 +73,11 @@ export async function updateDraftSettings(
 
   const { error: draftSettingsError } = await supabase
     .from("draft_settings")
-    .update({ seconds_per_pick: secondsPerPick, allow_pick_trading: allowPickTrading })
+    .update({
+      seconds_per_pick: secondsPerPick,
+      timer_enabled: timerEnabled,
+      allow_pick_trading: allowPickTrading,
+    })
     .eq("league_id", leagueId);
 
   if (draftSettingsError) {

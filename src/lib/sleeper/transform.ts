@@ -62,6 +62,7 @@ export function transformDraftSettings(
     league_id: leagueId,
     commissioner_id: commissionerId,
     seconds_per_pick: secondsPerPick,
+    timer_enabled: true,
     allow_pick_trading: true,
     auto_draft_enabled: false,
     auto_draft_type: "ffc_adp" as const,

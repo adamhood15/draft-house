@@ -24,9 +24,12 @@ const SLEEPER_LEAGUE_ID_PATTERN = /^\d+$/;
 
 export class LeagueImportError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  /** Set when the error is "already imported" — lets the UI link straight to it. */
+  existingLeagueId?: string;
+  constructor(message: string, status: number, existingLeagueId?: string) {
     super(message);
     this.status = status;
+    this.existingLeagueId = existingLeagueId;
   }
 }
 
@@ -114,7 +117,11 @@ export async function importSleeperLeague(sleeperLeagueIdRaw: string): Promise<{
     .maybeSingle();
 
   if (existing) {
-    throw new LeagueImportError("This league has already been imported to Draft House.", 409);
+    throw new LeagueImportError(
+      "This league has already been imported to Draft House.",
+      409,
+      existing.id
+    );
   }
 
   let league, rosters, users, drafts;

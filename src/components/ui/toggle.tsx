@@ -3,10 +3,15 @@ export function Toggle({
   name,
   label,
   defaultChecked,
+  checked,
+  onChange,
 }: {
   name: string;
   label: string;
   defaultChecked?: boolean;
+  /** Pass checked+onChange for a controlled toggle (e.g. to drive other fields' state); omit for a plain uncontrolled one. */
+  checked?: boolean;
+  onChange?: (checked: boolean) => void;
 }) {
   return (
     <label className="flex items-center justify-between gap-3">
@@ -16,6 +21,8 @@ export function Toggle({
           type="checkbox"
           name={name}
           defaultChecked={defaultChecked}
+          checked={checked}
+          onChange={onChange ? (e) => onChange(e.target.checked) : undefined}
           className="peer sr-only"
         />
         <span className="absolute inset-0 rounded-full border-2 border-ink bg-white transition-colors peer-checked:bg-green" />

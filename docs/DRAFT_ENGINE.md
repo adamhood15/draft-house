@@ -145,6 +145,8 @@ Timer counts down from 60
 
 Commissioner can completely disable the timer, giving the current team unlimited time.
 
+A draft can also *start* this way: `draft_settings.timer_enabled` is a pre-draft default the commissioner sets on the league setup page (see [DATABASE.md](DATABASE.md#3-draft_settings)), and seeds `draft_state.timer_active` when the draft is initialized. From that point on, the live toggle below is what actually governs the countdown — setting the initial value doesn't limit the commissioner from flipping it mid-draft either way.
+
 ```
 Commissioner clicks "Deactivate Timer"
     ↓

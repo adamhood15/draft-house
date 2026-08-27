@@ -1,4 +1,4 @@
-export type ImportState = { error: string | null };
+export type ImportState = { error: string | null; existingLeagueId?: string | null };
 
 export const initialImportState: ImportState = { error: null };
 
