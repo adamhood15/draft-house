@@ -1,9 +1,51 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { ClaimState } from "@/lib/leagues/state";
+import { removeTeamFile, replaceTeamFile } from "@/lib/storage";
+import { IMAGE_UPLOAD_CONSTRAINTS, SONG_UPLOAD_CONSTRAINTS } from "@/lib/media-constraints";
+import type { ClaimState, SettingsState } from "@/lib/leagues/state";
+
+/**
+ * Mirrors teams_update's actual RLS permission (owner OR commissioner) so
+ * this app-level check isn't stricter than what the database already
+ * allows — a commissioner can customize an absent member's team, same as
+ * their other admin capabilities elsewhere in the app.
+ */
+async function requireTeamEditAccess(teamId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error("You must be signed in.");
+  }
+
+  const { data: team } = await supabase
+    .from("teams")
+    .select("id, league_id, owner_id")
+    .eq("id", teamId)
+    .single();
+
+  if (!team) {
+    throw new Error("Team not found.");
+  }
+
+  if (team.owner_id !== user.id) {
+    const { data: league } = await supabase
+      .from("leagues")
+      .select("commissioner_id")
+      .eq("id", team.league_id)
+      .single();
+    if (league?.commissioner_id !== user.id) {
+      throw new Error("You don't have permission to edit this team.");
+    }
+  }
+
+  return team;
+}
 
 /**
  * Claiming an unclaimed team goes through the admin client for the same
@@ -59,5 +101,90 @@ export async function claimTeam(
     return { error: "That team was just claimed by someone else — pick another." };
   }
 
-  redirect(`/leagues/${leagueId}/lobby`);
+  // Fresh claim only — prompt customization once, right after claiming (see
+  // docs/ARCHITECTURE.md's Player Entry Flow). The idempotent re-visit
+  // branch above goes straight to the lobby instead.
+  redirect(`/leagues/${leagueId}/team`);
+}
+
+/**
+ * One combined save for name + image + walk-up song, matching
+ * docs/DESIGN.md#18-team-customization-screen's single full-width Save
+ * button. Image/song fields are optional — only present in FormData when
+ * the user actually picked a new file.
+ */
+export async function updateTeam(
+  leagueId: string,
+  teamId: string,
+  _prevState: SettingsState,
+  formData: FormData
+): Promise<SettingsState> {
+  try {
+    await requireTeamEditAccess(teamId);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Something went wrong." };
+  }
+
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) {
+    return { error: "Team name is required." };
+  }
+
+  const updates: Record<string, string> = { draft_house_team_name: name };
+
+  const imageFile = formData.get("image");
+  if (imageFile instanceof File && imageFile.size > 0) {
+    try {
+      updates.custom_image_url = await replaceTeamFile(
+        "team-images",
+        teamId,
+        "image",
+        imageFile,
+        IMAGE_UPLOAD_CONSTRAINTS
+      );
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : "Image upload failed." };
+    }
+  }
+
+  const songFile = formData.get("song");
+  if (songFile instanceof File && songFile.size > 0) {
+    try {
+      updates.walk_up_song_url = await replaceTeamFile(
+        "walk-up-songs",
+        teamId,
+        "song",
+        songFile,
+        SONG_UPLOAD_CONSTRAINTS
+      );
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : "Song upload failed." };
+    }
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("teams").update(updates).eq("id", teamId);
+
+  if (error) {
+    return { error: "Failed to save team. Please try again." };
+  }
+
+  revalidatePath(`/leagues/${leagueId}/team`);
+  return { error: null };
+}
+
+export async function removeTeamImage(leagueId: string, teamId: string): Promise<void> {
+  await requireTeamEditAccess(teamId);
+  await removeTeamFile("team-images", teamId, "image");
+  const supabase = await createClient();
+  await supabase.from("teams").update({ custom_image_url: null }).eq("id", teamId);
+  revalidatePath(`/leagues/${leagueId}/team`);
+}
+
+export async function removeWalkUpSong(leagueId: string, teamId: string): Promise<void> {
+  await requireTeamEditAccess(teamId);
+  await removeTeamFile("walk-up-songs", teamId, "song");
+  const supabase = await createClient();
+  await supabase.from("teams").update({ walk_up_song_url: null }).eq("id", teamId);
+  revalidatePath(`/leagues/${leagueId}/team`);
 }

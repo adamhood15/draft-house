@@ -73,14 +73,24 @@ export default async function LeagueLobbyPage({
       <div>
         <h1 className="font-display text-2xl">{league.name}</h1>
         <p className="text-sm text-ink/70">Draft lobby — coming soon.</p>
-        {isCommissioner && (
-          <Link
-            href={`/leagues/${leagueId}/setup`}
-            className="text-sm font-bold text-purple underline"
-          >
-            League Settings
-          </Link>
-        )}
+        <div className="flex justify-center gap-4">
+          {viewerHasClaimed && (
+            <Link
+              href={`/leagues/${leagueId}/team`}
+              className="text-sm font-bold text-purple underline"
+            >
+              Edit My Team
+            </Link>
+          )}
+          {isCommissioner && (
+            <Link
+              href={`/leagues/${leagueId}/setup`}
+              className="text-sm font-bold text-purple underline"
+            >
+              League Settings
+            </Link>
+          )}
+        </div>
       </div>
 
       {isCommissioner && (

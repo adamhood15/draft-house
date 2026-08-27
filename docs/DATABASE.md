@@ -125,6 +125,7 @@ teams
 - Both `sleeper_team_name` and `draft_house_team_name` are stored (one is reference, one is editable)
 - Images are separate: original from Sleeper, optional custom upload
 - Walk-up song is stored in Supabase Storage; URL stored here
+- Team owner (or the commissioner) edits name/image/song at `/leagues/{id}/team` — prompted once right after claiming (see [ARCHITECTURE.md](../ARCHITECTURE.md)'s Player Entry Flow), and revisitable anytime after. See [AUDIO.md](AUDIO.md#upload-technical-details) for the storage bucket layout.
 - `is_auto_draft` and `family_league_wins` are not synced to Sleeper (Draft House only)
 - `team_anecdote` is manually entered by commissioner
 

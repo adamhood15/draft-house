@@ -64,21 +64,22 @@ Users can also update their song from team settings later.
 
 **Storage**: Supabase Storage
 
-**Bucket**: `walk-up-songs` (or similar)
+**Bucket**: `walk-up-songs` (public — see `supabase/migrations/20260827000004_team_storage_buckets.sql`)
 
-**Path structure**:
+**Path structure**: keyed by `team_id`, not `user_id` — `walk_up_song_url` lives on `teams`, and a user can own different teams (with different songs) across leagues.
+
 ```
 walk-up-songs/
-  ├── users/
-  │   ├── user_123.mp3
-  │   ├── user_456.mp4
-  │   └── user_789.wav
+  └── teams/
+      ├── {team_id}/song.mp3
+      └── {team_id}/song.wav
 ```
 
-**Constraints** (TBD):
-- Supported formats: MP3, WAV, OGG, AAC
-- Max file size: 10 MB (TBD: may adjust)
-- Naming: `users/{user_id}.{ext}`
+**Constraints**:
+- Supported formats: MP3, WAV, OGG, AAC (`audio/mpeg`, `audio/wav`, `audio/x-wav`, `audio/ogg`, `audio/aac`, `audio/mp4`)
+- Max file size: 10 MB
+- Naming: `teams/{team_id}/song.{ext}` — re-uploading in a different format replaces the old file rather than orphaning it (see `src/lib/storage.ts`)
+- All writes go through the admin client server-side (`src/lib/leagues/team-actions.ts`'s `updateTeam`), never the browser directly — same pattern as `leagues`/`draft_settings`/`teams` writes elsewhere in the app. No `storage.objects` RLS policies needed as a result.
 
 **Upload Handler**:
 
