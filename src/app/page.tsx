@@ -28,11 +28,19 @@ export default async function Home() {
           <p className="text-sm text-ink/70">
             Signed in as <span className="font-bold">{displayName ?? user.id}</span>
           </p>
-          <form action={signOut}>
-            <Button type="submit" variant="secondary">
-              Log Out
-            </Button>
-          </form>
+          <div className="flex gap-3">
+            <Link
+              href="/leagues/new"
+              className="rounded-lg border-2 border-ink bg-green px-4 py-2 text-sm font-bold uppercase tracking-wide text-white shadow-[3px_3px_0_var(--ink)]"
+            >
+              Import a League
+            </Link>
+            <form action={signOut}>
+              <Button type="submit" variant="secondary">
+                Log Out
+              </Button>
+            </form>
+          </div>
         </>
       ) : (
         <div className="flex gap-3">
