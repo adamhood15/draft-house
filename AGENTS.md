@@ -30,11 +30,17 @@ npm run dev
 - **[Design](docs/DESIGN.md)** — Brand, visual system, layout, components
 
 ## Important Principles
-
+- TDD is mandatory, every change follows **failing test first -> implement -> verify**:
+1. Write the tests that capture the desired behavior and watch them **fail** (red).
+2. Implement the minimum to make them pass.
+3. Run the suite + typecheck and confirm green.
 - **Single Source of Truth**: `AGENTS.md` is the single documentation root. Domain-specific guidance is progressively disclosed through the `docs/` directory.
 - **Minimal Context Bloat**: Instructions are split across focused documents to keep context consumption low for AI agents.
 - **Sleeper as Initialization**: Sleeper data initializes Draft House but does not continuously govern it. Draft House maintains its own state.
 - **Server Authority**: Draft operations (clock, picks, undo) are server-verified to prevent client-side manipulation.
+- D.R.Y. Don't Repeat Yourself
+- Use explicit naming conventions for variables and function names that accurately describe the contents or purpose of the function over abstract names
+- Verify before claiming "done" Never report something as working without running it. "done" means relevant tests green, typecheck clean, and for user-facing flow - exercised end to end, if test fails or a step was skipped, say so plainly with the output.
 
 ## Environment
 
