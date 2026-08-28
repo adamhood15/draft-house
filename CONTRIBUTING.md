@@ -50,13 +50,16 @@ Move ARCHITECTURE.md into docs/
 
 ## Verifying a change
 
-Run these before you push. Both currently pass clean on `main`:
+Run these before you push. All four pass clean on `main`:
 
 ```bash
-npx tsc --noEmit      # typecheck
+npm test              # vitest, single run
+npm run typecheck     # tsc --noEmit
 npm run lint          # eslint
 npm run build         # production build
 ```
+
+`npm run test:watch` keeps vitest running while you work.
 
 "Done" means the checks are green **and you ran them**, with the literal output in your handoff or
 PR description. If a step failed or was skipped, say so plainly rather than omitting it. A
@@ -65,14 +68,24 @@ side for anything real-time.
 
 ### Tests
 
-[AGENTS.md](AGENTS.md) makes TDD mandatory: failing test first, implement, verify. **That rule is
-currently unenforceable — this repository has no test runner and no test files.** There is no
-`npm test` script, and no framework in `devDependencies`.
+[AGENTS.md](AGENTS.md) makes TDD mandatory: failing test first, implement, verify.
 
-Until a runner is installed, do not report a change as tested, and do not write a handoff claiming
-green tests. State `"tests": "not run — no runner installed"` and rely on typecheck, lint, build,
-and manual exercise. Choosing and wiring up the runner is its own piece of work; raise it rather
-than quietly inventing a local setup that no one else shares.
+The runner is [Vitest](https://vitest.dev). Configuration lives in `vitest.config.mts`, with
+`vitest.setup.ts` registering the `@testing-library/jest-dom` matchers. Tests sit next to the code
+they cover as `*.test.ts` / `*.test.tsx` under `src/`.
+
+- The default environment is **node**, because most of `src/lib` is pure or server-side and booting
+  jsdom for it costs about twenty seconds a run. A component test opts in per file with
+  `// @vitest-environment jsdom` as the first line.
+- The `@/` alias is defined in both `tsconfig.json` and `vitest.config.mts`. If you add a path
+  alias, add it in both or imports will resolve under `tsc` and fail under vitest.
+- **Watch the test fail before you make it pass.** A test written against already-passing code
+  proves the assertion compiles, not that it holds. If you cannot get it to fail, say so in the
+  handoff rather than reporting a red-green cycle that did not happen.
+- Do not weaken an assertion to get to green. Report the disagreement instead.
+
+Server actions, Supabase clients, and Sleeper calls need fixtures rather than live services — never
+point a test at a real Supabase project or the Sleeper API.
 
 ## Pull requests
 

@@ -188,7 +188,11 @@ the side marked authoritative wins and `DOCS_STEWARD` reconciles the other.
     `docs/COMPONENTS.md` but does not exist yet.**
 - `/supabase/migrations` — Applied schema and RLS migrations; authoritative over the prose in
   `docs/DATABASE.md` and `docs/SECURITY.md`
+- `vitest.config.mts`, `vitest.setup.ts` — Test runner config; tests live beside the code as
+  `src/**/*.test.ts{,x}`
 - `.env.example` — Environment variables template
+
+Commands: `npm test`, `npm run typecheck`, `npm run lint`, `npm run build`.
 
 ## Contributing
 

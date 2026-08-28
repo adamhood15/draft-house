@@ -15,10 +15,18 @@ Writes and runs the tests. Owns the red-green-verify loop and the evidence that 
 | Test audio | `docs/AUDIO.md` | Testing Audio, Browser Compatibility |
 | Test Sleeper import | `docs/SLEEPER.md` | Testing & Validation, Error Handling |
 
+## Tooling
+
+Vitest, configured in `vitest.config.mts`; matchers registered in `vitest.setup.ts`. Tests live
+beside the code as `src/**/*.test.ts{,x}`. Default environment is node — a component test opts into
+jsdom with `// @vitest-environment jsdom` as its first line. `npm test` runs once,
+`npm run test:watch` stays resident. Full conventions in [CONTRIBUTING.md](../CONTRIBUTING.md).
+
 ## Hard Constraints
 
 - **Failing test first.** Write the test, watch it fail, then implement. A test written after a
   passing implementation proves nothing about the implementation.
+- Fixtures, never live services. A test must not reach a real Supabase project or the Sleeper API.
 - Never report a suite as green without the literal output. "Tests pass" is not evidence.
 - A skipped or flaky test is a failure until proven otherwise; say so plainly.
 - Do not weaken an assertion to make a suite green. Report the disagreement instead.
@@ -48,7 +56,7 @@ Full rules in `AGENTS.md` § Handoff Format.
   "changed": ["tests/..."],
   "verification": {
     "tests": "npm test — literal output",
-    "typecheck": "npx tsc --noEmit — literal output",
+    "typecheck": "npm run typecheck — literal output",
     "manual": "flow exercised, or null"
   },
   "red_green": "test failed as expected before the fix; passed after",
