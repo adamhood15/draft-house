@@ -190,6 +190,10 @@ the side marked authoritative wins and `DOCS_STEWARD` reconciles the other.
   `docs/DATABASE.md` and `docs/SECURITY.md`
 - `.env.example` — Environment variables template
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for branches, commits, verification, and pull requests.
+
 ## License
 
 MIT — see [LICENSE](LICENSE)
