@@ -24,7 +24,7 @@ Owns trade types, proposal flow, validation, roster synchronization, the trade l
   one clean rejection.
 - v1 scope is 2-team propose/accept/reject. Counter-offers are post-MVP — do not build them because
   the document describes them.
-- Failing test first, per `AGENTS.md` § Universal Rules.
+- Failing test first for any change touching `src/`, per [TESTING.md](../docs/TESTING.md).
 
 ## Out of Scope — Route Instead
 
@@ -41,17 +41,10 @@ blocker and let the Orchestrator either widen your map or route the work to the 
 
 ## Handoff
 
-Full rules in `AGENTS.md` § Handoff Format.
+Base shape in [AGENTS.md](../AGENTS.md). This role adds:
 
 ```json
 {
-  "role": "TRADES",
-  "task": "one line",
-  "status": "complete | partial | blocked",
-  "changed": ["src/..."],
-  "verification": { "tests": "literal output", "typecheck": "literal output", "manual": "or null" },
-  "client_write_surface": "which client-writable fields this change adds or alters",
-  "blockers": [],
-  "notes": ""
+  "client_write_surface": "which client-writable fields this change adds or alters"
 }
 ```

@@ -23,7 +23,8 @@ Owns the Sleeper import, player data mapping and caching, and third-party rankin
   upstream must not become a null that breaks the draft room.
 - Respect the documented fetch cadence — rankings load once at draft load, not per pick.
 - Never commit an API key. Keys come from the environment, per `docs/DEVELOPMENT.md`.
-- Failing test first, per `AGENTS.md` § Universal Rules, with fixtures rather than live calls.
+- Failing test first for any change touching `src/`, per [TESTING.md](../docs/TESTING.md), with
+  fixtures rather than live calls.
 
 ## Out of Scope — Route Instead
 
@@ -39,17 +40,10 @@ blocker and let the Orchestrator either widen your map or route the work to the 
 
 ## Handoff
 
-Full rules in `AGENTS.md` § Handoff Format.
+Base shape in [AGENTS.md](../AGENTS.md). This role adds:
 
 ```json
 {
-  "role": "EXTERNAL_DATA",
-  "task": "one line",
-  "status": "complete | partial | blocked",
-  "changed": ["src/lib/sleeper/..."],
-  "verification": { "tests": "literal output", "typecheck": "literal output", "manual": "or null" },
-  "upstream_assumptions": "fields relied on and what happens when they are absent",
-  "blockers": [],
-  "notes": ""
+  "upstream_assumptions": "fields relied on and what happens when they are absent"
 }
 ```

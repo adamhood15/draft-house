@@ -28,7 +28,8 @@ When they disagree, the spec wins and `DOCS_STEWARD` reconciles the code documen
   already exist before you rely on it.
 - This project's Next.js differs from training data. Read the relevant guide under
   `node_modules/next/dist/docs/` before writing framework code.
-- Failing test first, per `AGENTS.md` Universal Rules; user-facing flows get end-to-end exercise.
+- Failing test first for any change touching `src/`, per [TESTING.md](../docs/TESTING.md);
+  user-facing flows get end-to-end exercise.
 
 ## Out of Scope — Route Instead
 
@@ -46,17 +47,10 @@ blocker and let the Orchestrator either widen your map or route the work to the 
 
 ## Handoff
 
-Full rules in `AGENTS.md`, Handoff Format.
+Base shape in [AGENTS.md](../AGENTS.md). This role adds:
 
 ```json
 {
-  "role": "FRONTEND",
-  "task": "one line",
-  "status": "complete | partial | blocked",
-  "changed": ["src/components/...", "src/app/..."],
-  "verification": { "tests": "literal output", "typecheck": "literal output", "manual": "flow exercised end to end, or null" },
-  "spec_followed": "docs/NOTIFICATIONS.md ...",
-  "blockers": [],
-  "notes": ""
+  "spec_followed": "docs/NOTIFICATIONS.md — the section you built against"
 }
 ```

@@ -39,17 +39,10 @@ blocker and let the Orchestrator either widen your map or route the work to the 
 
 ## Handoff
 
-Full rules in `AGENTS.md`, Handoff Format.
+Base shape in [AGENTS.md](../AGENTS.md). This role adds:
 
 ```json
 {
-  "role": "DESIGN_SYSTEM",
-  "task": "one line",
-  "status": "complete | partial | blocked",
-  "changed": ["src/...", "docs/DESIGN.md"],
-  "verification": { "tests": "literal output", "typecheck": "literal output", "manual": "contrast and focus checked, or null" },
-  "tokens_added": [],
-  "blockers": [],
-  "notes": ""
+  "tokens_added": []
 }
 ```

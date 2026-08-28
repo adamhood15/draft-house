@@ -28,7 +28,7 @@ they outrank the prose.
   policy with the table.
 - The browser never holds Storage credentials. Uploads go through a server action with the
   service-role client.
-- Failing test first, per `AGENTS.md` § Universal Rules. A policy test asserts both that the
+- Failing test first for any change touching `src/`, per [TESTING.md](../docs/TESTING.md). A policy test asserts both that the
   permitted case passes **and** that the forbidden case is denied.
 
 ## Out of Scope — Route Instead
@@ -45,21 +45,11 @@ blocker and let the Orchestrator either widen your map or route the work to the 
 
 ## Handoff
 
-Full rules in `AGENTS.md` § Handoff Format.
+Base shape in [AGENTS.md](../AGENTS.md). This role adds:
 
 ```json
 {
-  "role": "SECURITY",
-  "task": "one line",
-  "status": "complete | partial | blocked",
-  "changed": ["supabase/migrations/...", "docs/SECURITY.md"],
-  "verification": {
-    "tests": "permitted case passes AND forbidden case denied — literal output",
-    "typecheck": "literal output",
-    "manual": "or null"
-  },
   "boundary_changes": "any table whose client write access changed",
-  "blockers": [],
-  "notes": ""
+  "verification": { "tests": "permitted case passes AND forbidden case denied — literal output" }
 }
 ```

@@ -22,7 +22,7 @@ commissioner draft administration, and draft completion.
 - Every draft-mechanics table is written with the service-role client only. `trade_offers` and
   `trade_offer_items` are the sole exception and they are not yours.
 - Snake order is derived, never stored as a mutable list you can drift from.
-- Failing test first, per `AGENTS.md` § Universal Rules.
+- Failing test first for any change touching `src/`, per [TESTING.md](../docs/TESTING.md).
 - Do not add a new table or column. Route it.
 
 ## Out of Scope — Route Instead
@@ -42,17 +42,10 @@ blocker and let the Orchestrator either widen your map or route the work to the 
 
 ## Handoff
 
-Full rules in `AGENTS.md` § Handoff Format.
+Base shape in [AGENTS.md](../AGENTS.md). This role adds:
 
 ```json
 {
-  "role": "DRAFT_ENGINE",
-  "task": "one line",
-  "status": "complete | partial | blocked",
-  "changed": ["src/..."],
-  "verification": { "tests": "literal output", "typecheck": "literal output", "manual": "or null" },
-  "server_authority": "which decisions moved or stayed server-side",
-  "blockers": [],
-  "notes": ""
+  "server_authority": "which decisions moved or stayed server-side"
 }
 ```

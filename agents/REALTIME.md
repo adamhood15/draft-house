@@ -22,7 +22,7 @@ debouncing, and rate limiting.
 - Never widen a payload to include data the receiving client is not entitled to read. Realtime
   bypasses nothing, but a payload is not filtered by RLS the way a query is.
 - Every subscription must unsubscribe. A leaked channel is a defect, not a nuisance.
-- Failing test first, per `AGENTS.md` § Universal Rules.
+- Failing test first for any change touching `src/`, per [TESTING.md](../docs/TESTING.md).
 
 ## Out of Scope — Route Instead
 
@@ -40,17 +40,10 @@ blocker and let the Orchestrator either widen your map or route the work to the 
 
 ## Handoff
 
-Full rules in `AGENTS.md` § Handoff Format.
+Base shape in [AGENTS.md](../AGENTS.md). This role adds:
 
 ```json
 {
-  "role": "REALTIME",
-  "task": "one line",
-  "status": "complete | partial | blocked",
-  "changed": ["src/..."],
-  "verification": { "tests": "literal output", "typecheck": "literal output", "manual": "or null" },
-  "channels_touched": ["league:{id}:draft"],
-  "blockers": [],
-  "notes": ""
+  "channels_touched": ["league:{id}:draft"]
 }
 ```

@@ -25,7 +25,7 @@ authority on current state, ahead of any document.
 - A new table defaults to service-role-only. Client write access is a decision for `SECURITY`, made
   explicitly, not a default you inherit.
 - Name the migration for what it does, in the established `YYYYMMDDNNNNNN_snake_case.sql` form.
-- Failing test first, per `AGENTS.md` § Universal Rules.
+- Failing test first for any change touching `src/`, per [TESTING.md](../docs/TESTING.md).
 
 ## Out of Scope — Route Instead
 
@@ -41,17 +41,10 @@ blocker and let the Orchestrator either widen your map or route the work to the 
 
 ## Handoff
 
-Full rules in `AGENTS.md` § Handoff Format.
+Base shape in [AGENTS.md](../AGENTS.md). This role adds:
 
 ```json
 {
-  "role": "DATABASE",
-  "task": "one line",
-  "status": "complete | partial | blocked",
-  "changed": ["supabase/migrations/...", "docs/DATABASE.md"],
-  "verification": { "tests": "literal output", "typecheck": "literal output", "manual": "migration applied locally, or null" },
-  "write_access": "service-role only | client-writable (SECURITY sign-off required)",
-  "blockers": [],
-  "notes": ""
+  "write_access": "service-role only | client-writable (SECURITY sign-off required)"
 }
 ```

@@ -8,7 +8,7 @@ correctness, scope, and evidence — not taste.
 | Task | Read | Sections |
 |---|---|---|
 | Any review | The diff, plus `agents/<PRODUCING_ROLE>.md` | Read Map, Hard Constraints |
-| Check the change stayed in scope | `AGENTS.md` | Role Table, Universal Rules |
+| Check the change stayed in scope | `AGENTS.md`, [ENGINEERING.md](../docs/ENGINEERING.md) | Roles; Working conventions |
 | Check a documented behaviour claim | The single document the producing role's map names for that task | that section only |
 | Check test evidence | The handoff `verification` block | all of it |
 
@@ -42,19 +42,16 @@ blocker and let the Orchestrator either widen your map or route the work to the 
 
 ## Handoff
 
-Full rules in `AGENTS.md`, Handoff Format.
+This role produces no diff, so it replaces `changed` and `verification` with its own evidence
+fields. `role`, `task`, `status`, and `notes` keep their meaning from [AGENTS.md](../AGENTS.md).
 
 ```json
 {
-  "role": "CODE_REVIEW",
-  "task": "one line: what was reviewed",
-  "status": "complete | partial | blocked",
   "reviewed_role": "TRADES",
   "findings": [
     { "severity": "defect | risk | note", "file": "src/...", "claim": "one sentence", "confidence": "confirmed | suspected" }
   ],
   "scope_expansion": "files touched outside the producing role's ownership, or none",
-  "evidence_checked": "tests and typecheck output present and green, or what was missing",
-  "notes": ""
+  "evidence_checked": "tests and typecheck output present and green, or what was missing"
 }
 ```

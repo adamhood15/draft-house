@@ -62,6 +62,11 @@ Users can also update their song from team settings later.
 
 ### Upload Technical Details
 
+> **Authority: the code wins.** This path has shipped in `src/lib/storage.ts`. This section tracks
+> the implementation — if they drift, update this section, not the code. See
+> [AGENT_PROTOCOL.md](AGENT_PROTOCOL.md#spec-vs-implementation).
+> Note this is the opposite direction from *Draft Chime* below, in the same file.
+
 **Storage**: Supabase Storage
 
 **Bucket**: `walk-up-songs` (public — see `supabase/migrations/20260827000004_team_storage_buckets.sql`)
@@ -316,6 +321,11 @@ useEffect(() => {
 ---
 
 ## Draft Chime
+
+> **Authority: this spec wins.** The chime is not built — `src/lib/audio.ts` does not exist. Code
+> written later conforms to this section. See
+> [AGENT_PROTOCOL.md](AGENT_PROTOCOL.md#spec-vs-implementation).
+> A second, divergent `playDraftChime` once lived in [COMPONENTS.md](COMPONENTS.md); it was removed.
 
 ### Overview
 

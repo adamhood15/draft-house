@@ -20,7 +20,7 @@ Writes and runs the tests. Owns the red-green-verify loop and the evidence that 
 Vitest, configured in `vitest.config.mts`; matchers registered in `vitest.setup.ts`. Tests live
 beside the code as `src/**/*.test.ts{,x}`. Default environment is node — a component test opts into
 jsdom with `// @vitest-environment jsdom` as its first line. `npm test` runs once,
-`npm run test:watch` stays resident. Full conventions in [CONTRIBUTING.md](../CONTRIBUTING.md).
+`npm run test:watch` stays resident. Full conventions in [CONTRIBUTING.md](../docs/CONTRIBUTING.md).
 
 ## Hard Constraints
 
@@ -46,21 +46,10 @@ blocker and let the Orchestrator either widen your map or route the work to the 
 
 ## Handoff
 
-Full rules in `AGENTS.md` § Handoff Format.
+Base shape in [AGENTS.md](../AGENTS.md). This role adds:
 
 ```json
 {
-  "role": "QA",
-  "task": "one line",
-  "status": "complete | partial | blocked",
-  "changed": ["tests/..."],
-  "verification": {
-    "tests": "npm test — literal output",
-    "typecheck": "npm run typecheck — literal output",
-    "manual": "flow exercised, or null"
-  },
-  "red_green": "test failed as expected before the fix; passed after",
-  "blockers": [],
-  "notes": ""
+  "red_green": "test failed as expected before the fix; passed after"
 }
 ```

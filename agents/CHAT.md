@@ -25,7 +25,7 @@ Owns the public activity feed, direct messages, emoji reactions, unread counts, 
 - A direct message must never be readable by a third party through a feed query, a realtime
   payload, or an unread count.
 - Moderation is documented as Future. Do not build it because the section exists.
-- Failing test first, per `AGENTS.md` Universal Rules.
+- Failing test first for any change touching `src/`, per [TESTING.md](../docs/TESTING.md).
 
 ## Out of Scope — Route Instead
 
@@ -42,17 +42,10 @@ blocker and let the Orchestrator either widen your map or route the work to the 
 
 ## Handoff
 
-Full rules in `AGENTS.md`, Handoff Format.
+Base shape in [AGENTS.md](../AGENTS.md). This role adds:
 
 ```json
 {
-  "role": "CHAT",
-  "task": "one line",
-  "status": "complete | partial | blocked",
-  "changed": ["src/..."],
-  "verification": { "tests": "literal output", "typecheck": "literal output", "manual": "or null" },
-  "untrusted_input": "where user text is accepted and how it is escaped",
-  "blockers": [],
-  "notes": ""
+  "untrusted_input": "where user text is accepted and how it is escaped"
 }
 ```
