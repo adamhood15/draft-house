@@ -787,15 +787,21 @@ const NotificationPreferencesModal = ({ league_id, user_id, onClose }) => {
 
 ### Draft Chime Function
 
+Import the chime; do not re-implement it.
+
 ```javascript
-const playDraftChime = (volume = 0.6) => {
-  const audio = new Audio('/sounds/draft-chime.mp3');
-  audio.volume = volume;
-  audio.play().catch(err => {
-    console.log('Chime playback blocked (browser autoplay policy):', err);
-  });
-};
+// src/lib/audio.ts (TBD — not yet created)
+import { playDraftChime } from '@/lib/audio';
 ```
+
+[AUDIO.md — Draft Chime](AUDIO.md#draft-chime) is authoritative for the chime: its volume, its
+`soundsMuted` gate, and the shared `<audio>` element it plays through.
+
+> **Removed:** this section previously carried a second `playDraftChime` definition at
+> `volume = 0.6` with **no mute check**, diverging from AUDIO.md's `volume = 0.8` gated on
+> `soundsMuted`. Two agents reading the two files would have built two different behaviours,
+> and the muted-user bug would have reproduced only for whoever happened to read this file.
+> The chime has one definition, and it lives in the audio module.
 
 ---
 
@@ -858,6 +864,9 @@ All popups use these CSS animations:
 
 ## See Also
 
-- [DRAFT_ENGINE.md](DRAFT_ENGINE.md) — Logic, state management, and real-time subscriptions
+- [NOTIFICATIONS.md](NOTIFICATIONS.md) — Spec for the pick announcement sequence and preferences
+- [TRADES.md](TRADES.md) — Spec for trade announcements and trade lifecycle
+- [AUDIO.md](AUDIO.md) — Authoritative definition of the draft chime
 - [DESIGN.md](DESIGN.md) — Visual design system and brand guidelines
 - [REALTIME.md](REALTIME.md) — Real-time event broadcasting
+- [AGENTS.md](../AGENTS.md) — Project overview

@@ -76,47 +76,99 @@ walk-up-songs/
 ```
 
 **Constraints**:
-- Supported formats: MP3, WAV, OGG, AAC (`audio/mpeg`, `audio/wav`, `audio/x-wav`, `audio/ogg`, `audio/aac`, `audio/mp4`)
+- Supported formats: MP3, WAV, OGG, AAC/M4A (`audio/mpeg`, `audio/wav`, `audio/x-wav`, `audio/ogg`, `audio/aac`, `audio/mp4`, `audio/x-m4a`). Browsers report m4a inconsistently, so a recognized *extension* (`mp3`, `wav`, `ogg`, `aac`, `m4a`) is accepted on its own — a file is rejected only when neither signal matches.
 - Max file size: 10 MB
 - Naming: `teams/{team_id}/song.{ext}` — re-uploading in a different format replaces the old file rather than orphaning it (see `src/lib/storage.ts`)
 - All writes go through the admin client server-side (`src/lib/leagues/team-actions.ts`'s `updateTeam`), never the browser directly — same pattern as `leagues`/`draft_settings`/`teams` writes elsewhere in the app. No `storage.objects` RLS policies needed as a result.
+- The browser holds no Storage credentials. The client posts the file to the `updateTeam` server action as `FormData`; that action performs the upload with the service-role client and writes `teams.walk_up_song_url`.
 
 **Upload Handler**:
 
-```javascript
-const uploadWalkUpSong = async (file, user_id) => {
-  // Validate file
-  if (!isValidAudioFormat(file)) {
-    throw new Error('Unsupported audio format');
+> Spec tracks implementation: the sample below mirrors `src/lib/storage.ts` and
+> `src/lib/leagues/team-actions.ts` as shipped. If the two diverge, the code is
+> authoritative — update this block rather than the code.
+
+`replaceTeamFile` is shared by walk-up songs and team images, so it takes the bucket and a
+name prefix rather than being song-specific:
+
+```typescript
+// src/lib/storage.ts
+import "server-only";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { validateUploadFile, type UploadConstraints } from "@/lib/media-constraints";
+
+export async function replaceTeamFile(
+  bucket: string,
+  teamId: string,
+  namePrefix: "image" | "song",
+  file: File,
+  constraints: UploadConstraints
+): Promise<string> {
+  // Authoritative check. The client-side one is only for fast feedback and
+  // can't be trusted on its own — a direct POST would skip it entirely.
+  const validationError = validateUploadFile(file, constraints);
+  if (validationError) {
+    throw new Error(validationError);
   }
-  if (file.size > 10 * 1024 * 1024) {
-    throw new Error('File exceeds 10 MB limit');
+
+  const admin = createAdminClient();
+  const folder = `teams/${teamId}`;
+
+  // `upsert: true` only replaces an *identical* path, so re-uploading a .wav
+  // over an existing .mp3 would orphan the old object. Clear the prefix first.
+  await removeTeamFile(bucket, teamId, namePrefix);
+
+  const ext = file.name.split(".").pop()?.toLowerCase() || "bin";
+  const path = `${folder}/${namePrefix}.${ext}`;
+
+  const { error } = await admin.storage.from(bucket).upload(path, file, { upsert: true });
+  if (error) {
+    throw new Error("Upload failed. Please try again.");
   }
 
-  // Upload to Supabase Storage
-  const { data, error } = await supabase
-    .storage
-    .from('walk-up-songs')
-    .upload(`users/${user_id}.${getExtension(file)}`, file, {
-      upsert: true  // Replace if already exists
-    });
+  return admin.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+}
 
-  if (error) throw error;
+export async function removeTeamFile(
+  bucket: string,
+  teamId: string,
+  namePrefix: "image" | "song"
+): Promise<void> {
+  const admin = createAdminClient();
+  const folder = `teams/${teamId}`;
 
-  // Store public URL in database
-  const publicUrl = supabase
-    .storage
-    .from('walk-up-songs')
-    .getPublicUrl(`users/${user_id}.${getExtension(file)}`).data.publicUrl;
+  const { data: existing } = await admin.storage.from(bucket).list(folder);
+  const stale = (existing ?? []).filter((f) => f.name.startsWith(`${namePrefix}.`));
+  if (stale.length > 0) {
+    await admin.storage.from(bucket).remove(stale.map((f) => `${folder}/${f.name}`));
+  }
+}
+```
 
-  // Update team record
-  await supabase
-    .from('teams')
-    .update({ walk_up_song_url: publicUrl })
-    .eq('id', team_id);
+Call site, inside the `updateTeam` server action — note that the `teams` update error is
+surfaced to the caller rather than discarded:
 
-  return publicUrl;
-};
+```typescript
+// src/lib/leagues/team-actions.ts
+const songFile = formData.get("song");
+if (songFile instanceof File && songFile.size > 0) {
+  try {
+    updates.walk_up_song_url = await replaceTeamFile(
+      "walk-up-songs",
+      teamId,
+      "song",
+      songFile,
+      SONG_UPLOAD_CONSTRAINTS
+    );
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Song upload failed." };
+  }
+}
+
+const { error } = await supabase.from("teams").update(updates).eq("id", teamId);
+if (error) {
+  return { error: "Failed to save team. Please try again." };
+}
 ```
 
 **UI Feedback**:
@@ -543,6 +595,8 @@ describe('Audio playback', () => {
 ## See Also
 
 - [DATABASE.md](DATABASE.md) — Storage of `walk_up_song_url` in teams table
+- [COMPONENTS.md](COMPONENTS.md) — Popup components that trigger the chime
+- [NOTIFICATIONS.md](NOTIFICATIONS.md) — Announcement sequence the audio accompanies
 - [REALTIME.md](REALTIME.md) — Real-time events triggering audio
 - [DESIGN.md](DESIGN.md) — Audio UI controls and placement
 - [AGENTS.md](../AGENTS.md) — Project overview

@@ -439,3 +439,11 @@ Before testing the draft:
 - [ ] Can make test picks
 - [ ] Real-time updates show across multiple browsers (open http://localhost:3000 in two windows)
 
+---
+
+## See Also
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) — The document this was split out of
+- [DATABASE.md](DATABASE.md) — Schema the seed script populates
+- [SLEEPER.md](SLEEPER.md) — API the seed script pulls from
+- [AGENTS.md](../AGENTS.md) — Project overview

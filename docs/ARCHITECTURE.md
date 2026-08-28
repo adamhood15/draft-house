@@ -7,8 +7,8 @@ This document describes the overall application architecture, tech stack, and da
 ### Frontend
 - **Framework**: Next.js, App Router
 - **Language**: TypeScript
-- **Styling**: Tailwind CSS (unconfigured beyond defaults until [DESIGN.md](docs/DESIGN.md)'s color/typography decisions land)
-- **State Management**: No state library — plain React state plus custom hooks wrapping Supabase Realtime subscriptions (the pattern already used throughout [REALTIME.md](docs/REALTIME.md) and [CHAT.md](docs/CHAT.md), e.g. `useDraftState`, `useUnreadMessageCount`)
+- **Styling**: Tailwind CSS (unconfigured beyond defaults until [DESIGN.md](DESIGN.md)'s color/typography decisions land)
+- **State Management**: No state library — plain React state plus custom hooks wrapping Supabase Realtime subscriptions (the pattern already used throughout [REALTIME.md](REALTIME.md) and [CHAT.md](CHAT.md), e.g. `useDraftState`, `useUnreadMessageCount`)
 - **Real-time Client**: Supabase JavaScript client
 - **Audio**: Web Audio API / HTML5 audio element
 
@@ -124,7 +124,7 @@ makes pick                    │                        (browser)
   └──────────────────────→ Browser updates
 ```
 
-See [REALTIME.md](docs/REALTIME.md) for detailed real-time synchronization.
+See [REALTIME.md](REALTIME.md) for detailed real-time synchronization.
 
 ## Key Application Areas
 
@@ -135,11 +135,11 @@ See [REALTIME.md](docs/REALTIME.md) for detailed real-time synchronization.
 **Rules**:
 - No external identity providers (Google, Apple, Facebook)
 - Username/password only — users never provide a real email address
-- Supabase Auth requires an email identifier internally; signup generates a synthetic one (`{username}@drafthouse.invalid`) behind the scenes (see [DATABASE.md](docs/DATABASE.md#1-users))
+- Supabase Auth requires an email identifier internally; signup generates a synthetic one (`{username}@drafthouse.invalid`) behind the scenes (see [DATABASE.md](DATABASE.md#1-users))
 - Sessions managed by Supabase Auth
 - Commissioner verification for admin operations
 
-**See**: Database schema in [DATABASE.md](docs/DATABASE.md)
+**See**: Database schema in [DATABASE.md](DATABASE.md)
 
 ### Sleeper Integration
 
@@ -152,7 +152,7 @@ See [REALTIME.md](docs/REALTIME.md) for detailed real-time synchronization.
 4. Commissioner reviews and edits settings
 5. After confirmation, Sleeper remains the reference only for specific lookups (e.g., player rankings for auto-draft)
 
-**See**: [SLEEPER.md](docs/SLEEPER.md) for API details, data mapping, and caching
+**See**: [SLEEPER.md](SLEEPER.md) for API details, data mapping, and caching
 
 ### Draft Management
 
@@ -166,7 +166,7 @@ See [REALTIME.md](docs/REALTIME.md) for detailed real-time synchronization.
 - Empty teams can be auto-drafted or manually managed
 - Roster validation before accepting picks
 
-**See**: [DRAFT_ENGINE.md](docs/DRAFT_ENGINE.md) for detailed draft logic
+**See**: [DRAFT_ENGINE.md](DRAFT_ENGINE.md) for detailed draft logic
 
 ### Real-Time Synchronization
 
@@ -181,7 +181,7 @@ See [REALTIME.md](docs/REALTIME.md) for detailed real-time synchronization.
 - Draft clock updated
 - Commissioner action (pause, undo, etc.)
 
-**See**: [REALTIME.md](docs/REALTIME.md) for implementation details
+**See**: [REALTIME.md](REALTIME.md) for implementation details
 
 ### Audio Management
 
@@ -193,7 +193,7 @@ See [REALTIME.md](docs/REALTIME.md) for detailed real-time synchronization.
 - Only plays during Round 1
 - Users can mute music without muting draft sounds
 
-**See**: [AUDIO.md](docs/AUDIO.md) for technical details
+**See**: [AUDIO.md](AUDIO.md) for technical details
 
 ### Chat & Activity
 
@@ -205,7 +205,7 @@ See [REALTIME.md](docs/REALTIME.md) for detailed real-time synchronization.
 - Emoji reactions to picks
 - Real-time updates
 
-**See**: [CHAT.md](docs/CHAT.md) for data model and implementation
+**See**: [CHAT.md](CHAT.md) for data model and implementation
 
 ## Data Model Overview
 
@@ -219,7 +219,7 @@ See [REALTIME.md](docs/REALTIME.md) for detailed real-time synchronization.
 - Reactions (emoji reactions to picks)
 - Walk-up Songs (stored in Supabase Storage)
 
-**See**: [DATABASE.md](docs/DATABASE.md) for complete schema
+**See**: [DATABASE.md](DATABASE.md) for complete schema
 
 ## Security Considerations
 
@@ -314,4 +314,15 @@ The current architecture is designed to support these extensions without major r
 
 ## Contact & Questions
 
-See [AGENTS.md](AGENTS.md) for overall project information and guidance.
+See [AGENTS.md](../AGENTS.md) for overall project information and guidance.
+
+---
+
+## See Also
+
+- [DEVELOPMENT.md](DEVELOPMENT.md) — Local setup, environment variables, seeding test data
+- [DATABASE.md](DATABASE.md) — Schema and relationships
+- [DRAFT_ENGINE.md](DRAFT_ENGINE.md) — Draft mechanics
+- [REALTIME.md](REALTIME.md) — Real-time transport
+- [SECURITY.md](SECURITY.md) — RLS and the service-role boundary
+- [AGENTS.md](../AGENTS.md) — Project overview

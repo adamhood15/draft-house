@@ -106,3 +106,13 @@ Prioritizes overall talent over roster completion
 
 ---
 
+---
+
+## See Also
+
+- [DRAFT_ENGINE.md](DRAFT_ENGINE.md) — Pick validation applied to auto-drafted picks
+- [TIMER.md](TIMER.md) — Expiration that triggers auto-draft
+- [SLEEPER.md](SLEEPER.md) — FFC ADP and FantasyPros ranking sources
+- [COMMISSIONER.md](COMMISSIONER.md) — Controlling empty teams
+- [DATABASE.md](DATABASE.md) — Roster and pick storage
+- [AGENTS.md](../AGENTS.md) — Project overview

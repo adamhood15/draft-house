@@ -355,3 +355,13 @@ const playerFinallyPicks = async (team_id, player_id) => {
 
 ---
 
+---
+
+## See Also
+
+- [DRAFT_ENGINE.md](DRAFT_ENGINE.md) — Pick selection and validation the clock drives
+- [COMMISSIONER.md](COMMISSIONER.md) — Pause, resume, and reset controls
+- [AUTO_DRAFT.md](AUTO_DRAFT.md) — What runs when the clock expires
+- [DATABASE.md](DATABASE.md) — `draft_state` timer fields
+- [REALTIME.md](REALTIME.md) — Broadcasting timer state
+- [AGENTS.md](../AGENTS.md) — Project overview

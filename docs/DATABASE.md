@@ -92,9 +92,9 @@ draft_settings
 
 **Notes**:
 - One row per league
-- `allow_pick_trading` is in MVP scope. v1 trades support 2-team propose/accept/reject only; counter-offers are post-MVP (see [DRAFT_ENGINE.md](DRAFT_ENGINE.md#trade-offers))
+- `allow_pick_trading` is in MVP scope. v1 trades support 2-team propose/accept/reject only; counter-offers are post-MVP (see [TRADES.md](TRADES.md#trade-offers))
 - `auto_draft_type` determines how empty teams are drafted
-- `timer_enabled` is the commissioner's pre-draft default — set on the league setup page, before any live draft state exists. It seeds `draft_state.timer_active` when the draft is initialized. From then on, `timer_active` is the live, in-draft-room toggle (see [DRAFT_ENGINE.md](DRAFT_ENGINE.md#timer-management)); the two are deliberately separate columns rather than one shared flag, since a commissioner can still turn the timer on/off mid-draft regardless of how it started.
+- `timer_enabled` is the commissioner's pre-draft default — set on the league setup page, before any live draft state exists. It seeds `draft_state.timer_active` when the draft is initialized. From then on, `timer_active` is the live, in-draft-room toggle (see [TIMER.md](TIMER.md#timer-management)); the two are deliberately separate columns rather than one shared flag, since a commissioner can still turn the timer on/off mid-draft regardless of how it started.
 
 ---
 
@@ -125,7 +125,7 @@ teams
 - Both `sleeper_team_name` and `draft_house_team_name` are stored (one is reference, one is editable)
 - Images are separate: original from Sleeper, optional custom upload
 - Walk-up song is stored in Supabase Storage; URL stored here
-- Team owner (or the commissioner) edits name/image/song at `/leagues/{id}/team` — prompted once right after claiming (see [ARCHITECTURE.md](../ARCHITECTURE.md)'s Player Entry Flow), and revisitable anytime after. See [AUDIO.md](AUDIO.md#upload-technical-details) for the storage bucket layout.
+- Team owner (or the commissioner) edits name/image/song at `/leagues/{id}/team` — prompted once right after claiming (see [ARCHITECTURE.md](ARCHITECTURE.md)'s Player Entry Flow), and revisitable anytime after. See [AUDIO.md](AUDIO.md#upload-technical-details) for the storage bucket layout.
 - `is_auto_draft` and `family_league_wins` are not synced to Sleeper (Draft House only)
 - `team_anecdote` is manually entered by commissioner
 
@@ -162,7 +162,7 @@ draft_state
 - `timer_seconds` is server-calculated (not client-calculated)
 - `timer_paused` allows commissioner to pause the draft
 - Updated in real-time; Supabase subscriptions notify clients
-- Draft lifecycle status ("setup"/"lobby"/"drafting"/"complete") lives on `leagues.draft_status`, not here — `draft_state` only tracks the live countdown/pick mechanics for a draft already in progress. See [DRAFT_ENGINE.md](DRAFT_ENGINE.md#timer-management) for how these fields are used together (jump-ahead, pause/resume, reset)
+- Draft lifecycle status ("setup"/"lobby"/"drafting"/"complete") lives on `leagues.draft_status`, not here — `draft_state` only tracks the live countdown/pick mechanics for a draft already in progress. See [TIMER.md](TIMER.md#timer-management) for how these fields are used together (jump-ahead, pause/resume, reset)
 
 ---
 
@@ -522,7 +522,7 @@ user_preferences
 **Notes**:
 - Composite primary key `(user_id, league_id)` — one row per user per league, since preferences can differ across leagues
 - Row is created lazily on first write (upsert); a missing row means defaults apply
-- Read by clients before showing pick/trade announcement popups (see [DRAFT_ENGINE.md](DRAFT_ENGINE.md#notification-preferences--settings))
+- Read by clients before showing pick/trade announcement popups (see [NOTIFICATIONS.md](NOTIFICATIONS.md#notification-preferences--settings))
 
 ---
 
@@ -544,7 +544,7 @@ draft_reset_archive
 **Notes**:
 - Written once per reset, immediately before `picks`, `chat_messages`, and `reactions` are cleared
 - Exists purely for recovery/audit — not queried during normal draft operation
-- See [DRAFT_ENGINE.md](DRAFT_ENGINE.md#5-reset-entire-draft) for the full reset flow
+- See [COMMISSIONER.md](COMMISSIONER.md#5-reset-entire-draft) for the full reset flow
 
 ---
 
@@ -850,7 +850,9 @@ If storage ever becomes a real concern (unlikely at this scale), the first lever
 
 ## See Also
 
-- [ARCHITECTURE.md](../ARCHITECTURE.md) — Overall application design
+- [ARCHITECTURE.md](ARCHITECTURE.md) — Overall application design
+- [SECURITY.md](SECURITY.md) — RLS policies protecting these tables
 - [SLEEPER.md](SLEEPER.md) — Data mapping from Sleeper import
 - [DRAFT_ENGINE.md](DRAFT_ENGINE.md) — Draft logic and pick validation
+- [TRADES.md](TRADES.md) — `trade_offers` and `trade_offer_items` usage
 - [AGENTS.md](../AGENTS.md) — Project overview

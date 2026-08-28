@@ -1114,6 +1114,7 @@ logEvent('dm_conversation_started', { league_id });
 ## See Also
 
 - [DATABASE.md](DATABASE.md) — `chat_messages`, `reactions`, `direct_messages` tables
+- [SECURITY.md](SECURITY.md) — Chat RLS policies and rate limiting
 - [REALTIME.md](REALTIME.md) — Real-time subscription implementation
 - [DESIGN.md](DESIGN.md) — Chat UI layout in draft room
 - [AGENTS.md](../AGENTS.md) — Project overview

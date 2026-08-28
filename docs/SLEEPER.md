@@ -330,7 +330,7 @@ https://sleepercdn.com/content/nfl/players/thumb/{sleeperPlayerId}.jpg
 https://sleepercdn.com/images/team_logos/nfl/{team}.png
 ```
 
-No authentication or rate limiting applies — these are plain static image requests. See [DATABASE.md](DATABASE.md#6-picks) and [DRAFT_ENGINE.md](DRAFT_ENGINE.md#pick-announcement--animation-sequence) for where these are used.
+No authentication or rate limiting applies — these are plain static image requests. See [DATABASE.md](DATABASE.md#6-picks) and [NOTIFICATIONS.md](NOTIFICATIONS.md#pick-announcement--animation-sequence) for where these are used.
 
 ---
 
@@ -418,7 +418,7 @@ When a team is set to auto-draft, the system needs a ranking to select players a
 
 ### Optional (Paid): FantasyPros Premium Consensus Rankings
 
-FantasyPros has a real consensus-rankings API (`GET /public/v2/json/nfl/{season}/consensus-rankings`), but its free tier is explicitly non-production sample data — real rankings require a Premium key (~$8.99/mo, bundled with a FantasyPros HOF subscription, personal non-commercial license). This isn't the default, but the commissioner can optionally supply a FantasyPros API key in league settings to use it instead of FFC ADP — see [DRAFT_ENGINE.md](DRAFT_ENGINE.md#ranking-source-priority) for how the two sources are prioritized.
+FantasyPros has a real consensus-rankings API (`GET /public/v2/json/nfl/{season}/consensus-rankings`), but its free tier is explicitly non-production sample data — real rankings require a Premium key (~$8.99/mo, bundled with a FantasyPros HOF subscription, personal non-commercial license). This isn't the default, but the commissioner can optionally supply a FantasyPros API key in league settings to use it instead of FFC ADP — see [AUTO_DRAFT.md](AUTO_DRAFT.md#ranking-source-priority) for how the two sources are prioritized.
 
 ---
 
@@ -561,5 +561,5 @@ After import, validate:
 
 - [DATABASE.md](DATABASE.md) — Data schema for imported league
 - [DRAFT_ENGINE.md](DRAFT_ENGINE.md) — Using imported data for draft
-- [ARCHITECTURE.md](../ARCHITECTURE.md) — Integration architecture
+- [ARCHITECTURE.md](ARCHITECTURE.md) — Integration architecture
 - [AGENTS.md](../AGENTS.md) — Project overview

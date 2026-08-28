@@ -331,7 +331,7 @@ Commissioner controls:
 ## 12a. Trade Builder
 
 ### Purpose
-UI for proposing a trade between two teams (see [DRAFT_ENGINE.md — Trade Offers](DRAFT_ENGINE.md#trade-offers) for the v1 propose/accept/reject scope).
+UI for proposing a trade between two teams (see [TRADES.md — Trade Offers](TRADES.md#trade-offers) for the v1 propose/accept/reject scope).
 
 ### Decisions
 

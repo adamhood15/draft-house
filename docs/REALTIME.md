@@ -657,7 +657,8 @@ supabase.realtime.debug = true;    // Enable debug logs
 ## See Also
 
 - [DATABASE.md](DATABASE.md) — Table schema and structure
+- [SECURITY.md](SECURITY.md) — RLS and the service-role boundary
 - [DRAFT_ENGINE.md](DRAFT_ENGINE.md) — Draft logic that triggers events
 - [CHAT.md](CHAT.md) — Chat implementation using real-time
-- [ARCHITECTURE.md](../ARCHITECTURE.md) — Overall system design
+- [ARCHITECTURE.md](ARCHITECTURE.md) — Overall system design
 - [AGENTS.md](../AGENTS.md) — Project overview

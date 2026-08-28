@@ -591,3 +591,14 @@ Current plan: No restrictions (commissioner can monitor).
 
 ---
 
+---
+
+## See Also
+
+- [SECURITY.md](SECURITY.md) — Why `trade_offers` / `trade_offer_items` are the only client-written draft-path tables
+- [DRAFT_ENGINE.md](DRAFT_ENGINE.md) — Draft mechanics trades operate within
+- [NOTIFICATIONS.md](NOTIFICATIONS.md) — Preference checks before trade popups
+- [COMPONENTS.md](COMPONENTS.md) — `TradePopup` implementation
+- [COMMISSIONER.md](COMMISSIONER.md) — Commissioner trade undo
+- [DATABASE.md](DATABASE.md) — `trade_offers` and `trade_offer_items` schema
+- [AGENTS.md](../AGENTS.md) — Project overview

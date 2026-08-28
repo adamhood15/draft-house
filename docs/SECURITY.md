@@ -74,7 +74,7 @@ CREATE POLICY dm_insert ON direct_messages
   FOR INSERT WITH CHECK (sender_id = auth.uid());
 ```
 
-**Trades** (visible and mutable only by the two teams involved, or the commissioner — `trade_offers` and `trade_offer_items` are written directly from the client per [DRAFT_ENGINE.md](DRAFT_ENGINE.md#trade-offers)'s `createTradeOffer`/`acceptTrade` calls, so unlike the draft-mechanics tables above, these need real write policies, not just SELECT):
+**Trades** (visible and mutable only by the two teams involved, or the commissioner — `trade_offers` and `trade_offer_items` are written directly from the client per [TRADES.md](TRADES.md#trade-offers)'s `createTradeOffer`/`acceptTrade` calls, so unlike the draft-mechanics tables above, these need real write policies, not just SELECT):
 
 ```sql
 CREATE POLICY trade_offers_select ON trade_offers FOR SELECT USING (
@@ -140,3 +140,13 @@ CREATE POLICY users_update_self ON users FOR UPDATE USING (id = auth.uid());
 
 ---
 
+---
+
+## See Also
+
+- [REALTIME.md](REALTIME.md) — The document this was split out of
+- [DATABASE.md](DATABASE.md) — Tables these policies apply to
+- [TRADES.md](TRADES.md) — The only client-written draft-path tables
+- [CHAT.md](CHAT.md) — Chat RLS and rate limiting
+- [ARCHITECTURE.md](ARCHITECTURE.md) — Where the service-role boundary sits
+- [AGENTS.md](../AGENTS.md) — Project overview

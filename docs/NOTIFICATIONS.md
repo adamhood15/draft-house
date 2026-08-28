@@ -258,3 +258,14 @@ Players can access notification preferences from:
 
 Each league has its own preference set, so players can customize differently for different leagues.
 
+---
+
+## See Also
+
+- [COMPONENTS.md](COMPONENTS.md) — React and CSS implementation of these popups
+- [DRAFT_ENGINE.md](DRAFT_ENGINE.md) — Pick flow that triggers announcements
+- [TRADES.md](TRADES.md) — Trade announcements using the same sequence
+- [AUDIO.md](AUDIO.md) — Draft chime played during the sequence
+- [DATABASE.md](DATABASE.md) — Notification preference storage
+- [REALTIME.md](REALTIME.md) — Broadcast that drives the popups
+- [AGENTS.md](../AGENTS.md) — Project overview
