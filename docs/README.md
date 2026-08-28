@@ -1,4 +1,13 @@
-# Documentation Index
+# Draft House
+
+A private, real-time fantasy football draft application. Import an existing Sleeper league,
+customize the draft, invite league members by shared link, and host a live draft with walk-up
+music, chat, and emoji reactions.
+
+Start at [AGENTS.md](../AGENTS.md) — it carries the commands, the role system, and the handoff
+shape. This file is the map of everything below it.
+
+## Documentation Index
 
 Every document in `docs/`, grouped. Role read maps in `agents/` name specific sections of these
 files — read what your map names, not the whole group.
