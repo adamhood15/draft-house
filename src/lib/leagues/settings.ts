@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { isDraftOrderType } from "@/lib/draft/order";
 import type { SettingsState } from "@/lib/leagues/state";
 
 // Unlike import (see src/lib/leagues/import.ts), these are plain authenticated
@@ -95,9 +96,18 @@ export async function updateDraftSettings(
   const timerEnabled = formData.get("timer_enabled") === "on";
   const allowPickTrading = formData.get("allow_pick_trading") === "on";
   const draftStartTimeRaw = String(formData.get("draft_start_time") ?? "");
+  const draftFormat = formData.get("draft_format");
 
   if (!Number.isFinite(secondsPerPick) || secondsPerPick < 10) {
     return { error: "Seconds per pick must be at least 10." };
+  }
+  // Checked here, before either write, rather than left to the database:
+  // leagues.draft_format is a bare `text` with no CHECK behind it (matching
+  // scoring_format and draft_status), so an unrecognized value would be
+  // accepted and only surface at draft load, when draftSlotForPick throws on
+  // a board it cannot lay out.
+  if (!isDraftOrderType(draftFormat)) {
+    return { error: "Invalid draft order." };
   }
 
   const supabase = await createClient();
@@ -126,6 +136,7 @@ export async function updateDraftSettings(
     .from("leagues")
     .update({
       draft_start_time: draftStartTimeRaw ? new Date(draftStartTimeRaw).toISOString() : null,
+      draft_format: draftFormat,
     })
     .eq("id", leagueId)
     .select("id");
@@ -141,7 +152,7 @@ export async function updateDraftSettings(
   if (!leagueRows || leagueRows.length === 0) {
     return {
       error:
-        "Draft settings saved, but the start time didn't — you may not have permission to edit this league.",
+        "Draft settings saved, but the draft order and start time didn't — you may not have permission to edit this league.",
     };
   }
   revalidatePath(`/leagues/${leagueId}/setup`);

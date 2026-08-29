@@ -73,7 +73,7 @@ export default async function LeagueSetupPage({
   const { data: league } = await supabase
     .from("leagues")
     .select(
-      "id, commissioner_id, name, season, league_size, scoring_format, positions, draft_status, draft_start_time, updated_at"
+      "id, commissioner_id, name, season, league_size, scoring_format, positions, draft_status, draft_format, draft_start_time, updated_at"
     )
     .eq("id", leagueId)
     .is("deleted_at", null)
@@ -146,6 +146,7 @@ export default async function LeagueSetupPage({
             <DraftSettingsForm
               leagueId={leagueId}
               draftSettings={draftSettings}
+              draftFormat={league.draft_format}
               draftStartTimeLocal={draftStartTimeLocal}
             />
           </section>

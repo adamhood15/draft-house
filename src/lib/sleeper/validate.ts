@@ -199,7 +199,9 @@ export function validateSleeperDrafts(body: unknown, context: string): SleeperDr
 
     return {
       draft_id: requireString(draft, "draft_id", context),
-      // Unread today — draft_format is fixed to snake in transform.ts.
+      // Unread today — import seeds draft_format with DEFAULT_DRAFT_ORDER_TYPE
+      // (src/lib/draft/order.ts) and the commissioner sets the real order in
+      // draft settings, so Sleeper's own type is never consulted.
       type: optionalString(draft, "type"),
       settings: settings
         ? { seconds_per_pick: optionalPositiveInteger(settings, "seconds_per_pick") }

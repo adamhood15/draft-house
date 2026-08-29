@@ -14,9 +14,13 @@ The Draft Engine manages the live draft for a league. It handles:
 - Trade offers and validation
 
 ---
-## Draft Format: Snake Draft
+## Draft Order
 
-### How Snake Draft Works
+The commissioner picks the order in draft settings; it is stored on
+`leagues.draft_format`. `src/lib/draft/order.ts` is the implementation and the
+registry of available orders — adding one there adds it to the settings select.
+
+### Snake
 
 **Pick Order**:
 - Round 1: Teams pick 1→12 (1.01, 1.02, ..., 1.12)
@@ -34,7 +38,30 @@ Round 4: 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1
 ...
 ```
 
+### Linear
+
+Every round runs in the same direction, so a team keeps its seat in the
+sequence for the whole draft.
+
+**Example (12-team league)**:
+
+```
+Round 1: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+Round 2: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+...
+```
+
 ### Implementation
+
+The pseudocode below describes the snake specifically. `src/lib/draft/order.ts`
+generalizes it: each order type supplies the one mapping between a round
+sequence position and the seat that owns it, and everything else — round,
+label, board generation, the inverse lookup — is shared.
+
+Note that `position_in_round` and the team seat are different numbers. The seat
+(`teams.draft_position`) is fixed for the whole draft; `position_in_round` is
+where that seat falls in the round sequence, which mirrors on even rounds in a
+snake and never moves in a linear draft.
 
 **Calculating Next Pick**:
 

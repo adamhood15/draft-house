@@ -4,6 +4,7 @@ import type {
   SleeperRoster,
   SleeperUser,
 } from "@/lib/sleeper/types";
+import { DEFAULT_DRAFT_ORDER_TYPE } from "@/lib/draft/order";
 
 /** docs/SLEEPER.md#data-mapping — Sleeper's flat roster_positions array to a position-count map. */
 export function buildPositions(rosterPositions: string[] | null | undefined) {
@@ -43,7 +44,7 @@ export function transformLeague(
     season: Number(league.season),
     league_size: rosterCount,
     scoring_format: deriveScoringFormat(league.scoring_settings),
-    draft_format: "snake" as const,
+    draft_format: DEFAULT_DRAFT_ORDER_TYPE,
     rosters_per_team: rostersPerTeam,
     positions,
     league_settings: league.settings ?? {},

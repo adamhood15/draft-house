@@ -340,7 +340,7 @@ No authentication or rate limiting applies — these are plain static image requ
 |---|---|---|
 | `draft_order` | — | Used to sort teams |
 | `settings.seconds_per_pick` | `seconds_per_pick` | Editable |
-| `type` | `draft_format` | Snake, other formats TBD |
+| `type` | `draft_format` | Unread. Import seeds the default order; the commissioner picks it in draft settings |
 | `settings.rounds` | — | Calculated from roster size |
 
 ---

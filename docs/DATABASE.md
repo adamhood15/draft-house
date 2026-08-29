@@ -50,7 +50,7 @@ leagues
 ├── season (INTEGER)
 ├── league_size (INTEGER)
 ├── scoring_format (VARCHAR) -- e.g., "half_ppr", "ppr", "std"
-├── draft_format (VARCHAR) -- e.g., "snake"
+├── draft_format (VARCHAR) -- draft order: "snake" or "linear" (src/lib/draft/order.ts)
 ├── rosters_per_team (INTEGER)
 ├── positions (JSONB) -- roster construction
 ├── league_settings (JSONB) -- additional settings from Sleeper
@@ -472,7 +472,7 @@ team_pick_assignments
 ├── original_owner_team_id (UUID, FK → teams.id) -- original team assigned this pick (before trades)
 ├── pick_number (INTEGER) -- which pick slot (1, 2, 3, ..., total_picks)
 ├── round (INTEGER) -- round number (1-16)
-├── position_in_round (INTEGER) -- position within the round (1-12 for 12-team league)
+├── position_in_round (INTEGER) -- place in the round's pick *sequence* (1-12), not the team's seat
 ├── status (VARCHAR) -- 'active', 'forfeited', 'traded'
 ├── created_at (TIMESTAMP)
 └── updated_at (TIMESTAMP)
@@ -491,10 +491,11 @@ team_pick_assignments
 
 **Example**:
 ```
-Team A initially owns picks 1, 13, 25, 37, ... (1.01, 2.12, 3.01, 4.12, ...)
-Team A trades pick 13 to Team B
+Team A drafts at position 1, so in a 12-team snake it owns
+  picks 1, 24, 25, 48, 49, ... (1.01, 2.01, 3.01, 4.01, 5.01, ...)
+Team A trades pick 24 to Team B
   → Row updated: current_owner_team_id = Team B, status = 'traded'
-Team A is warned about roster limit and must forfeit pick 37
+Team A is warned about roster limit and must forfeit pick 48
   → Row updated: status = 'forfeited'
 ```
 
