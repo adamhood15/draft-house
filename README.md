@@ -4,21 +4,17 @@ A private, real-time fantasy football draft application. Import an existing Slee
 customize the draft, invite league members by shared link, and host a live draft with walk-up
 music, chat, and emoji reactions.
 
-Start at [AGENTS.md](AGENTS.md) — it carries the commands, the role system, and the handoff
-shape. This file is the map of everything below it.
+Start at [AGENTS.md](AGENTS.md) — it carries the commands and the conventions. This file is the
+map of everything below it.
 
 ## Documentation Index
 
-Every document in `docs/`, grouped. Role read maps in `agents/` name specific sections of these
-files — read what your map names, not the whole group.
+Every document in `docs/`, grouped. Read what the work in front of you needs, not the whole group.
 
 ## Working agreements
 
-- **[AGENT_PROTOCOL.md](docs/AGENT_PROTOCOL.md)** — Read maps, handoff semantics, and which document
-  wins when two disagree
 - **[ENGINEERING.md](docs/ENGINEERING.md)** — Code conventions and the two domain invariants
 - **[TESTING.md](docs/TESTING.md)** — TDD scope, Vitest setup, test conventions
-- **[CONTRIBUTING.md](docs/CONTRIBUTING.md)** — Branches, commits, pull requests
 
 ## Foundation
 

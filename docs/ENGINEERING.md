@@ -41,20 +41,18 @@ code path that re-reads Sleeper to "correct" local data. See [SLEEPER.md](SLEEPE
 
 ## Working conventions
 
-- **Stay in scope.** Work the request, not the surrounding area. Out-of-scope findings are reported
-  in the handoff `notes`, not fixed silently. A change touching files outside your role's ownership
-  is a review finding even when the code is good.
+- **Stay in scope.** Work the request, not the surrounding area. Out-of-scope findings are
+  reported, not fixed silently — a change reaching well beyond what was asked is a review finding
+  even when the code is good.
 - **Verify before claiming done.** Never report something as working without running it. "Done"
   means the checks for your change type passed *and you ran them*, with literal output. For a
   user-facing flow, that includes exercising it end to end — two browser windows side by side for
   anything real-time.
 - **A skipped step is reported, not omitted.** If a check did not run, say which and why. See
-  [AGENT_PROTOCOL.md](AGENT_PROTOCOL.md) for how the bar varies by change type.
+  [TESTING.md](TESTING.md) for how the bar varies by change type.
 
 ## See Also
 
-- [AGENT_PROTOCOL.md](AGENT_PROTOCOL.md) — Read maps, handoffs, spec-vs-implementation authority
 - [TESTING.md](TESTING.md) — TDD and the test bar
 - [ARCHITECTURE.md](ARCHITECTURE.md) — Tech stack and application structure
 - [SECURITY.md](SECURITY.md) — RLS and the service-role boundary
-- [CONTRIBUTING.md](CONTRIBUTING.md) — Branches, commits, pull requests

@@ -11,89 +11,27 @@ npm run lint          # eslint
 npm run build         # production build
 ```
 
-## How agents work here
+## Working here
 
-Work here is done by role-scoped agents. Each role has a **read map** naming the exact documents
-and sections its tasks need, so an agent loads context for the job rather than the whole
-documentation set.
-
-Every session:
-
-1. **Identify your role.** If you were not given one, you are the Orchestrator — route the work, do
-   not do it.
-2. **Open `agents/<ROLE>.md`.** Read its Read Map, Hard Constraints, and Out of Scope table before
-   anything else. The read-map rule that binds you is stated there.
-3. **Read only what your map names for the task at hand** — the named sections, not whole files,
-   unless the map says "whole file".
-4. **Do the work**, following [docs/ENGINEERING.md](docs/ENGINEERING.md) and, for anything touching
-   `src/`, [docs/TESTING.md](docs/TESTING.md).
-5. **Report in the handoff shape below.** A change without a handoff is not finished.
-
-[docs/AGENT_PROTOCOL.md](docs/AGENT_PROTOCOL.md) covers the reasoning, the one read-map exemption,
-and what to do when two documents disagree.
-
-## Roles
-
-| Role | Owns |
-|---|---|
-| [ORCHESTRATOR](agents/ORCHESTRATOR.md) | Routing, read maps, sequencing. Implements nothing. |
-| [QA](agents/QA.md) | Tests, the red-green loop, verification evidence |
-| [DRAFT_ENGINE](agents/DRAFT_ENGINE.md) | Snake order, pick validation, rosters, clock, auto-draft, commissioner controls |
-| [TRADES](agents/TRADES.md) | Trade proposal, validation, lifecycle, roster sync |
-| [REALTIME](agents/REALTIME.md) | Channels, events, subscriptions, reconnection, rate limiting |
-| [DATABASE](agents/DATABASE.md) | Schema, indexes, constraints, migrations |
-| [SECURITY](agents/SECURITY.md) | RLS, the service-role boundary, read-only-client rule |
-| [EXTERNAL_DATA](agents/EXTERNAL_DATA.md) | Sleeper import, player cache, ranking sources |
-| [AUDIO](agents/AUDIO.md) | Walk-up music, chime, mute, upload |
-| [CHAT](agents/CHAT.md) | Activity feed, DMs, reactions, moderation |
-| [FRONTEND](agents/FRONTEND.md) | React components, screens, client state |
-| [DESIGN_SYSTEM](agents/DESIGN_SYSTEM.md) | Brand, colour, type, spacing, motion, accessibility |
-| [CODE_REVIEW](agents/CODE_REVIEW.md) | Reviewing a change against its producing role's constraints |
-| [DOCS_STEWARD](agents/DOCS_STEWARD.md) | `AGENTS.md`, `docs/`, `agents/`; contradictions and links |
-
-## Handoff shape
-
-Identical for every role. Role files add their own fields on top of this.
-
-```json
-{
-  "role": "DRAFT_ENGINE",
-  "task": "one line: what you were asked to do",
-  "status": "complete | partial | blocked",
-  "changed": ["src/lib/draft/pick.ts", "docs/TIMER.md"],
-  "verification": {
-    "tests": "command run plus literal output, or why it did not apply",
-    "typecheck": "command run plus literal output, or why it did not apply",
-    "manual": "flow exercised end to end, or null"
-  },
-  "blockers": [
-    {
-      "need": "docs/SECURITY.md",
-      "why": "the pick write path depends on the service-role boundary",
-      "requested_of": "ORCHESTRATOR"
-    }
-  ],
-  "notes": "contradictions found, assumptions made, anything the next role needs"
-}
-```
-
-For a change touching `src/`, `complete` requires tests green and typecheck clean, with literal
-output. Documentation-only changes and roles that produce no diff have a different bar — see
-[docs/AGENT_PROTOCOL.md](docs/AGENT_PROTOCOL.md). A `partial` report is correct; a false green is
-not.
+Read the docs relevant to what you are touching — not the whole set. Follow
+[docs/ENGINEERING.md](docs/ENGINEERING.md) for all code, and [docs/TESTING.md](docs/TESTING.md) for
+anything under `src/`. A change to `src/` is not done until tests pass and typecheck is clean; say
+so with the literal output.
 
 ## Documentation
 
-[README.md](README.md) indexes everything. The four you are most likely to need:
-
-- [docs/AGENT_PROTOCOL.md](docs/AGENT_PROTOCOL.md) — Read maps, handoffs, document authority
-- [docs/ENGINEERING.md](docs/ENGINEERING.md) — Code conventions, server authority, Sleeper boundary
-- [docs/TESTING.md](docs/TESTING.md) — TDD scope and test setup
-- [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) — Branches, commits, pull requests
+| Area | Read |
+|---|---|
+| Conventions, invariants | [ENGINEERING.md](docs/ENGINEERING.md), [TESTING.md](docs/TESTING.md) |
+| Structure, local setup | [ARCHITECTURE.md](docs/ARCHITECTURE.md), [DEVELOPMENT.md](docs/DEVELOPMENT.md) |
+| Data, access control | [DATABASE.md](docs/DATABASE.md), [SECURITY.md](docs/SECURITY.md) |
+| Draft mechanics | [DRAFT_ENGINE.md](docs/DRAFT_ENGINE.md), [TIMER.md](docs/TIMER.md), [AUTO_DRAFT.md](docs/AUTO_DRAFT.md), [COMMISSIONER.md](docs/COMMISSIONER.md), [TRADES.md](docs/TRADES.md) |
+| Live experience | [REALTIME.md](docs/REALTIME.md), [NOTIFICATIONS.md](docs/NOTIFICATIONS.md), [AUDIO.md](docs/AUDIO.md), [CHAT.md](docs/CHAT.md) |
+| Interface | [DESIGN.md](docs/DESIGN.md), [COMPONENTS.md](docs/COMPONENTS.md) |
+| Sleeper integration | [SLEEPER.md](docs/SLEEPER.md) |
 
 ## Layout
 
-- `/agents` — Role definitions
 - `/docs` — Technical documentation
 - `/src` — Application source (`app/` routes, `components/`, `lib/` server actions and helpers)
 - `/supabase/migrations` — Applied schema and RLS migrations; authoritative over the prose in

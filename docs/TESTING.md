@@ -8,15 +8,11 @@
 2. Implement the minimum to make them pass.
 3. Run the suite and typecheck, and confirm green.
 
-**It does not apply to changes that touch only `docs/`, `agents/`, or `AGENTS.md`**, and it does
-not apply to roles that produce no diff (`ORCHESTRATOR` routing, `CODE_REVIEW` reporting). Those
-report `"tests": "n/a — documentation only"` or omit the verification block, and are still eligible
-for `status: "complete"`. See [AGENT_PROTOCOL.md](AGENT_PROTOCOL.md) for the full bar by change
-type.
+**It does not apply to changes that touch only `docs/` or `AGENTS.md`.** Report those as
+`tests: n/a — documentation only`; they are complete without a red-green cycle.
 
-This scoping is deliberate. The earlier phrasing bound "every change" and every role, which made
-`complete` unreachable for four of the fourteen roles and turned `partial` into the normal outcome
-— draining the signal from a status that is supposed to mean something.
+This scoping is deliberate. Binding the TDD bar to "every change" makes it unreachable for work
+that produces no testable diff, which drains the signal from the bar everywhere it does apply.
 
 ## Running tests
 
@@ -48,7 +44,7 @@ cover as `src/**/*.test.ts` or `*.test.tsx`.
 
 - **Watch the test fail before you make it pass.** A test written against already-passing code
   proves the assertion compiles, not that it holds. If you cannot get it to fail, say so in the
-  handoff rather than reporting a red-green cycle that did not happen. This applies with most force
+  report rather than claiming a red-green cycle that did not happen. This applies with most force
   to a harness change: fake timers, mocked clocks, and short-circuited control flow all fail
   **open**, so a test that has quietly stopped asserting anything keeps passing. Whenever a harness
   pattern makes a test faster or simpler, flip the assertion to a wrong value and confirm it fails
@@ -110,14 +106,12 @@ Still open, and each needs a decision before it can be closed:
   three different things about whether a local Postgres is part of the setup at all. Whether these
   run against a scratch cloud project, a local Postgres, or not at all, is undecided — raise it
   rather than assuming an answer.
-- **Migration-only changes have no stated bar.** [AGENT_PROTOCOL.md](AGENT_PROTOCOL.md) classifies a
-  change as touching `src/` or as touching documentation; one that only adds a file under
-  `supabase/migrations/` is neither, so no verification bar currently applies. That is a gap in the
-  protocol for its owner to close, not a licence to ship a migration unverified.
+- **Migration-only changes have no stated bar.** The rule above classifies a change as touching
+  `src/` or as touching documentation; one that only adds a file under `supabase/migrations/` is
+  neither, so no verification bar currently applies. That is an open gap, not a licence to ship a
+  migration unverified.
 
 ## See Also
 
-- [AGENT_PROTOCOL.md](AGENT_PROTOCOL.md) — The verification bar by change type
 - [ENGINEERING.md](ENGINEERING.md) — Code conventions and domain invariants
 - [DEVELOPMENT.md](DEVELOPMENT.md) — Local environment and seeding test data
-- [CONTRIBUTING.md](CONTRIBUTING.md) — Branches, commits, pull requests
