@@ -7,6 +7,34 @@ music, chat, and emoji reactions.
 Start at [AGENTS.md](AGENTS.md) — it carries the commands and the conventions. This file is the
 map of everything below it.
 
+## Getting started
+
+Requires **Node 20+** and a free [Supabase](https://supabase.com/dashboard) project — there is no
+local database or Docker in this setup.
+
+```bash
+npm install
+cp .env.example .env.local   # then fill in your Supabase URL and keys
+npm run dev                  # http://localhost:3000
+```
+
+Get the three Supabase values from **Settings → API** in the dashboard. Full setup, including
+seeding a league from Sleeper, is in [DEVELOPMENT.md](docs/DEVELOPMENT.md).
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Start the dev server on port 3000 |
+| `npm run build` | Production build |
+| `npm start` | Serve the production build (run `build` first) |
+| `npm test` | Vitest, single run |
+| `npm run test:watch` | Vitest, resident |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run lint` | ESLint |
+| `npm run seed` | Seed a league from Sleeper (see [DEVELOPMENT.md](docs/DEVELOPMENT.md)) |
+| `npm run supabase:push` | Apply pending migrations |
+
 ## Documentation Index
 
 Every document in `docs/`, grouped. Read what the work in front of you needs, not the whole group.

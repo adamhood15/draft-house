@@ -5,7 +5,7 @@ Split out of [ARCHITECTURE.md](ARCHITECTURE.md) — the local development enviro
 ### Overview
 
 Draft House is developed locally with:
-- **Database**: Local PostgreSQL (not Docker)
+- **Database**: Supabase free tier (cloud) — no local Postgres, no Docker
 - **Backend**: Supabase free tier (cloud)
 - **Frontend**: Next.js dev server (localhost:3000)
 - **Real-time**: Supabase Realtime
@@ -430,7 +430,7 @@ Instead, we use the real Supabase free tier, which is generous and reliable.
 
 Before testing the draft:
 
-- [ ] PostgreSQL installed and running
+- [ ] Supabase project created, migrations applied (`npm run supabase:push`)
 - [ ] `.env.local` configured with Supabase keys
 - [ ] `npm install` completed
 - [ ] `npm run seed` executed successfully

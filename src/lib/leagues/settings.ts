@@ -66,6 +66,26 @@ export async function updateLeagueSettings(
   return { error: null };
 }
 
+// Step one of setup advances on save. The redirect lives here rather than in a
+// client effect: navigating from an effect meant firing router.push on a render
+// pass, which grew Next's client router cache until it threw "Map maximum size
+// exceeded" and never navigated. confirmLeagueSetup below has always redirected
+// server-side; this matches it.
+//
+// updateLeagueSettings stays as it is, returning state rather than redirecting,
+// so it remains usable anywhere the caller does not want a navigation.
+export async function saveLeagueSettingsAndContinue(
+  leagueId: string,
+  prevState: SettingsState,
+  formData: FormData
+): Promise<SettingsState> {
+  const state = await updateLeagueSettings(leagueId, prevState, formData);
+  if (state.error) {
+    return state;
+  }
+  redirect(`/leagues/${leagueId}/setup?step=draft`);
+}
+
 export async function updateDraftSettings(
   leagueId: string,
   _prevState: SettingsState,
@@ -126,6 +146,25 @@ export async function updateDraftSettings(
   }
   revalidatePath(`/leagues/${leagueId}/setup`);
   return { error: null };
+}
+
+// Both setup steps save through a redirect rather than by returning success
+// state. Returning state leaves Next's dev renderer re-rendering the page in
+// place, which spins on setImmediate until its async-hooks Map overflows
+// ("RangeError: Map maximum size exceeded"): a 34s POST against a 607ms GET of
+// the same page, with the two database writes measured at under a second.
+// POST-redirect-GET sidesteps that, and gives the confirmation a home in the
+// URL — somewhere no remount can wipe it.
+export async function saveDraftSettings(
+  leagueId: string,
+  prevState: SettingsState,
+  formData: FormData
+): Promise<SettingsState> {
+  const state = await updateDraftSettings(leagueId, prevState, formData);
+  if (state.error) {
+    return state;
+  }
+  redirect(`/leagues/${leagueId}/setup?step=draft&saved=1`);
 }
 
 // useActionState calls this with (state, formData); neither is used here,

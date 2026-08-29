@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { updateDraftSettings } from "@/lib/leagues/settings";
+import { saveDraftSettings } from "@/lib/leagues/settings";
 import { initialSettingsState } from "@/lib/leagues/state";
 import { Input } from "@/components/ui/input";
 import { Toggle } from "@/components/ui/toggle";
@@ -22,7 +22,7 @@ export function DraftSettingsForm({
   draftSettings: DraftSettings;
   draftStartTimeLocal: string;
 }) {
-  const action = updateDraftSettings.bind(null, leagueId);
+  const action = saveDraftSettings.bind(null, leagueId);
   const [state, formAction] = useActionState(action, initialSettingsState);
   const [timerEnabled, setTimerEnabled] = useState(draftSettings.timer_enabled);
 

@@ -20,7 +20,15 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-const { updateLeagueSettings, updateDraftSettings } = await import("@/lib/leagues/settings");
+const redirect = vi.fn();
+vi.mock("next/navigation", () => ({ redirect: (...args: unknown[]) => redirect(...args) }));
+
+const {
+  updateLeagueSettings,
+  updateDraftSettings,
+  saveLeagueSettingsAndContinue,
+  saveDraftSettings,
+} = await import("@/lib/leagues/settings");
 
 const NO_ROWS_MATCHED: QueryResult = { data: [], error: null };
 const ONE_ROW_MATCHED: QueryResult = { data: [{ id: "league-1" }], error: null };
@@ -44,6 +52,7 @@ function draftForm() {
 
 beforeEach(() => {
   from = queuedFrom([]);
+  redirect.mockClear();
 });
 
 describe("updateLeagueSettings", () => {
@@ -89,5 +98,55 @@ describe("updateDraftSettings", () => {
     expect(state.error).toBe(
       "Draft settings saved, but the start time didn't — you may not have permission to edit this league."
     );
+  });
+});
+
+describe("saveLeagueSettingsAndContinue", () => {
+  /**
+   * Step one of setup advances on save, so the advance has to be tied to the
+   * write actually landing. A refused write surfaces as a returned `{ error }`
+   * rather than a throw (see updateLeagueSettings above), so advancing on
+   * "the action returned" would carry the commissioner to step two with their
+   * edits silently dropped.
+   */
+  it("moves on to the draft step once the write has landed", async () => {
+    from = queuedFrom([ONE_ROW_MATCHED]);
+    await saveLeagueSettingsAndContinue("league-1", { error: null }, leagueForm());
+    expect(redirect).toHaveBeenCalledWith("/leagues/league-1/setup?step=draft");
+  });
+
+  it("stays on the league step, reporting the error, when the write was refused", async () => {
+    from = queuedFrom([NO_ROWS_MATCHED]);
+    const state = await saveLeagueSettingsAndContinue("league-1", { error: null }, leagueForm());
+    expect(state?.error).toBe(
+      "Couldn't save league settings — you may not have permission to edit this league."
+    );
+    expect(redirect).not.toHaveBeenCalled();
+  });
+});
+
+describe("saveDraftSettings", () => {
+  /**
+   * Returning state from this action leaves Next's dev renderer re-rendering
+   * the page in-place, which spins on setImmediate until its async-hooks Map
+   * overflows ("RangeError: Map maximum size exceeded") — a 34s POST against
+   * a 607ms GET of the very same page, with database writes measured at well
+   * under a second. Redirecting instead keeps the save on the plain
+   * POST-redirect-GET path that step one already uses, and gives the
+   * confirmation somewhere to live that a remount cannot wipe.
+   */
+  it("redirects back to the draft step, flagged saved, once both writes landed", async () => {
+    from = queuedFrom([ONE_ROW_MATCHED, ONE_ROW_MATCHED]);
+    await saveDraftSettings("league-1", { error: null }, draftForm());
+    expect(redirect).toHaveBeenCalledWith("/leagues/league-1/setup?step=draft&saved=1");
+  });
+
+  it("reports the error and does not redirect when the write was refused", async () => {
+    from = queuedFrom([NO_ROWS_MATCHED]);
+    const state = await saveDraftSettings("league-1", { error: null }, draftForm());
+    expect(state?.error).toBe(
+      "Couldn't save draft settings — you may not have permission to edit this league."
+    );
+    expect(redirect).not.toHaveBeenCalled();
   });
 });

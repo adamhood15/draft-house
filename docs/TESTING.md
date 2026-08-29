@@ -100,12 +100,11 @@ Still open, and each needs a decision before it can be closed:
 
 - **The draft engine and the timer** need a clock-faking strategy.
 - **RLS policy tests have no agreed target.** Running one needs a database to assert against, and
-  the project has not settled what that is.
-  [DEVELOPMENT.md](DEVELOPMENT.md#why-not-supabase-emulator) rules out the Supabase emulator, but
-  that decision does not answer the question — and [DEVELOPMENT.md](DEVELOPMENT.md) currently says
-  three different things about whether a local Postgres is part of the setup at all. Whether these
-  run against a scratch cloud project, a local Postgres, or not at all, is undecided — raise it
-  rather than assuming an answer.
+  the project has not settled what that is. The setup is cloud Supabase only — no local Postgres
+  and no emulator (see [DEVELOPMENT.md](DEVELOPMENT.md#why-not-supabase-emulator)) — which leaves a
+  scratch cloud project as the only obvious target, and that has not been agreed either. Whether
+  these run against a scratch project or not at all is undecided — raise it rather than assuming an
+  answer.
 - **Migration-only changes have no stated bar.** The rule above classifies a change as touching
   `src/` or as touching documentation; one that only adds a file under `supabase/migrations/` is
   neither, so no verification bar currently applies. That is an open gap, not a licence to ship a

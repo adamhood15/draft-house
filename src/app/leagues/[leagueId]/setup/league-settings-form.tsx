@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { updateLeagueSettings } from "@/lib/leagues/settings";
+import { saveLeagueSettingsAndContinue } from "@/lib/leagues/settings";
 import { initialSettingsState } from "@/lib/leagues/state";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -17,7 +17,9 @@ type League = {
 };
 
 export function LeagueSettingsForm({ league }: { league: League }) {
-  const action = updateLeagueSettings.bind(null, league.id);
+  // Advancing to step two is the action's job, not this component's — it
+  // redirects server-side only when the write actually matched a row.
+  const action = saveLeagueSettingsAndContinue.bind(null, league.id);
   const [state, formAction] = useActionState(action, initialSettingsState);
   const positionEntries = Object.entries(league.positions);
 
@@ -70,7 +72,7 @@ export function LeagueSettingsForm({ league }: { league: League }) {
         </p>
       )}
       <Button type="submit" className="self-start">
-        Save League Settings
+        Save &amp; Continue
       </Button>
     </form>
   );
