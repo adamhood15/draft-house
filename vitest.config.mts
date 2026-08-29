@@ -18,6 +18,13 @@ export default defineConfig({
       // Mirrors the "@/*" -> "./src/*" path in tsconfig.json. The two have to
       // agree or imports resolve under tsc but not under vitest.
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+      // `import "server-only"` throws by default outside a React Server
+      // Component, which makes every module under src/lib untestable. Next
+      // swaps in this same empty module under the "react-server" export
+      // condition; vitest has no such condition, so alias it explicitly.
+      "server-only": fileURLToPath(
+        new URL("./node_modules/server-only/empty.js", import.meta.url)
+      ),
     },
   },
 });

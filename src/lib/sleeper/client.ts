@@ -1,19 +1,20 @@
 import "server-only";
-import type {
-  SleeperDraft,
-  SleeperLeague,
-  SleeperLeagueSummary,
-  SleeperNflState,
-  SleeperRoster,
-  SleeperUser,
-  SleeperUserLookup,
-} from "@/lib/sleeper/types";
+import {
+  SleeperNotFoundError,
+  SleeperShapeError,
+  SleeperUnavailableError,
+} from "@/lib/sleeper/errors";
+import {
+  validateSleeperDrafts,
+  validateSleeperLeague,
+  validateSleeperLeagueSummaries,
+  validateSleeperNflState,
+  validateSleeperRosters,
+  validateSleeperUserLookup,
+  validateSleeperUsers,
+} from "@/lib/sleeper/validate";
 
-/** GET /league/{id} returns HTTP 404 with a `null` body for an unknown league — verified against the live API. */
-export class SleeperNotFoundError extends Error {}
-
-/** Network failure or non-404 error, after exhausting retries. See docs/SLEEPER.md#network-timeout. */
-export class SleeperUnavailableError extends Error {}
+export { SleeperNotFoundError, SleeperShapeError, SleeperUnavailableError };
 
 const BASE_URL = process.env.SLEEPER_API_BASE_URL ?? "https://api.sleeper.app/v1";
 const TIMEOUT_MS = Number(process.env.SLEEPER_API_TIMEOUT ?? 10000);
@@ -23,7 +24,16 @@ function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function sleeperFetch<T>(path: string): Promise<T> {
+/**
+ * Every Sleeper response passes through a validator before it leaves this
+ * module — see validate.ts. Sleeper publishes no contract, so a raw
+ * `body as T` would only move the failure downstream, where it surfaces as a
+ * database error with nothing naming Sleeper as the cause.
+ */
+async function sleeperFetch<T>(
+  path: string,
+  validate: (body: unknown, context: string) => T
+): Promise<T> {
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -44,9 +54,12 @@ async function sleeperFetch<T>(path: string): Promise<T> {
       if (body === null) {
         throw new SleeperNotFoundError(`Sleeper resource not found: ${path}`);
       }
-      return body as T;
+      return validate(body, path);
     } catch (error) {
+      // Neither of these gets better on a retry: the resource is absent, or
+      // the payload is the shape it is and will be again next attempt.
       if (error instanceof SleeperNotFoundError) throw error;
+      if (error instanceof SleeperShapeError) throw error;
       lastError = error;
       if (attempt < MAX_ATTEMPTS) {
         await wait(2 ** attempt * 250);
@@ -62,31 +75,31 @@ async function sleeperFetch<T>(path: string): Promise<T> {
 }
 
 export function fetchSleeperLeague(leagueId: string) {
-  return sleeperFetch<SleeperLeague>(`/league/${leagueId}`);
+  return sleeperFetch(`/league/${leagueId}`, validateSleeperLeague);
 }
 
 export function fetchSleeperRosters(leagueId: string) {
-  return sleeperFetch<SleeperRoster[]>(`/league/${leagueId}/rosters`);
+  return sleeperFetch(`/league/${leagueId}/rosters`, validateSleeperRosters);
 }
 
 export function fetchSleeperUsers(leagueId: string) {
-  return sleeperFetch<SleeperUser[]>(`/league/${leagueId}/users`);
+  return sleeperFetch(`/league/${leagueId}/users`, validateSleeperUsers);
 }
 
 export function fetchSleeperDrafts(leagueId: string) {
-  return sleeperFetch<SleeperDraft[]>(`/league/${leagueId}/drafts`);
+  return sleeperFetch(`/league/${leagueId}/drafts`, validateSleeperDrafts);
 }
 
 /** GET /user/{username} 200s with a `null` body for an unknown username — no 404 here, unlike /league. */
 export function fetchSleeperUserByUsername(username: string) {
-  return sleeperFetch<SleeperUserLookup>(`/user/${encodeURIComponent(username)}`);
+  return sleeperFetch(`/user/${encodeURIComponent(username)}`, validateSleeperUserLookup);
 }
 
 export function fetchSleeperLeaguesForUser(userId: string, season: string) {
-  return sleeperFetch<SleeperLeagueSummary[]>(`/user/${userId}/leagues/nfl/${season}`);
+  return sleeperFetch(`/user/${userId}/leagues/nfl/${season}`, validateSleeperLeagueSummaries);
 }
 
 /** Authoritative "current season" per Sleeper — avoids guessing from the calendar date. */
 export function fetchNflState() {
-  return sleeperFetch<SleeperNflState>(`/state/nfl`);
+  return sleeperFetch(`/state/nfl`, validateSleeperNflState);
 }

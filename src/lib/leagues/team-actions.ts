@@ -78,12 +78,24 @@ export async function claimTeam(
 
   // Idempotent: revisiting the invite link (or a double submit) after
   // already claiming should just continue on, not error.
-  const { data: existingClaim } = await admin
+  const { data: existingClaim, error: existingClaimError } = await admin
     .from("teams")
     .select("id")
     .eq("league_id", leagueId)
     .eq("owner_id", user.id)
     .maybeSingle();
+
+  // A discarded error here fails open: `.maybeSingle()` answers duplicate
+  // ownership with PGRST116 and a null body (see getUserClaimedTeamId in
+  // ./teams.ts), so reading `data` alone lets someone who already owns two
+  // teams fall through and claim a third. Never fall through — either they
+  // already have a team, or we could not establish that they don't.
+  if (existingClaimError) {
+    if (existingClaimError.code === "PGRST116") {
+      redirect(`/leagues/${leagueId}/lobby`);
+    }
+    return { error: "Couldn't check your existing teams. Please try again." };
+  }
 
   if (existingClaim) {
     redirect(`/leagues/${leagueId}/lobby`);
@@ -97,7 +109,24 @@ export async function claimTeam(
     .is("owner_id", null)
     .select("id");
 
-  if (error || !data || data.length === 0) {
+  // Post-index (supabase/migrations/20260828000002_teams_one_claim_per_user.sql)
+  // a second claim by the same user fails here as a unique violation rather
+  // than silently succeeding. That is the same situation the guard above
+  // handles, reached by a narrower race — so it gets the same answer.
+  // Reporting "someone else took it" would be a false statement about who
+  // owns what.
+  if (error?.code === "23505") {
+    redirect(`/leagues/${leagueId}/lobby`);
+  }
+
+  // A genuinely lost race is the zero-rows case specifically: the
+  // `.is("owner_id", null)` filter matched nothing because another claimer
+  // got there first. Any other error is ours, not theirs.
+  if (error) {
+    return { error: "Couldn't claim that team. Please try again." };
+  }
+
+  if (!data || data.length === 0) {
     return { error: "That team was just claimed by someone else — pick another." };
   }
 
@@ -163,10 +192,22 @@ export async function updateTeam(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.from("teams").update(updates).eq("id", teamId);
+  // `.select("id")` so a zero-row update is distinguishable from a
+  // successful one — without it RLS filtering the row out returns the same
+  // `{ error: null }` a real save does, and the form reports success for a
+  // write that never landed. Same shape as confirmLeagueSetup in ./settings.ts.
+  const { data, error } = await supabase
+    .from("teams")
+    .update(updates)
+    .eq("id", teamId)
+    .select("id");
 
   if (error) {
     return { error: "Failed to save team. Please try again." };
+  }
+
+  if (!data || data.length === 0) {
+    return { error: "Couldn't save your team — you may not have permission to edit it." };
   }
 
   revalidatePath(`/leagues/${leagueId}/team`);

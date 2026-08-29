@@ -3,7 +3,11 @@ export type SleeperLeague = {
   name: string;
   season: string;
   status: string;
-  settings?: Record<string, number> | null;
+  /**
+   * Kept verbatim as the `league_settings` backup copy in Draft House, so its
+   * values are whatever Sleeper sent — not necessarily numbers.
+   */
+  settings?: Record<string, unknown> | null;
   scoring_settings?: Record<string, number> | null;
   roster_positions?: string[] | null;
 };

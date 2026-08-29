@@ -43,13 +43,24 @@ export async function updateLeagueSettings(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase
+  // `.select("id")` so a zero-row update is distinguishable from a real one.
+  // leagues_update RLS restricts this to the commissioner; when it filters
+  // the row out, PostgREST answers `{ error: null }` — exactly what a
+  // successful write returns. See confirmLeagueSetup below for the same shape.
+  const { data, error } = await supabase
     .from("leagues")
     .update({ name, scoring_format: scoringFormat, positions, rosters_per_team: rostersPerTeam })
-    .eq("id", leagueId);
+    .eq("id", leagueId)
+    .select("id");
 
   if (error) {
     return { error: "Failed to save league settings. Please try again." };
+  }
+
+  if (!data || data.length === 0) {
+    return {
+      error: "Couldn't save league settings — you may not have permission to edit this league.",
+    };
   }
   revalidatePath(`/leagues/${leagueId}/setup`);
   return { error: null };
@@ -71,28 +82,47 @@ export async function updateDraftSettings(
 
   const supabase = await createClient();
 
-  const { error: draftSettingsError } = await supabase
+  const { data: draftSettingsRows, error: draftSettingsError } = await supabase
     .from("draft_settings")
     .update({
       seconds_per_pick: secondsPerPick,
       timer_enabled: timerEnabled,
       allow_pick_trading: allowPickTrading,
     })
-    .eq("league_id", leagueId);
+    .eq("league_id", leagueId)
+    .select("league_id");
 
   if (draftSettingsError) {
     return { error: "Failed to save draft settings. Please try again." };
   }
 
-  const { error: leagueError } = await supabase
+  if (!draftSettingsRows || draftSettingsRows.length === 0) {
+    return {
+      error: "Couldn't save draft settings — you may not have permission to edit this league.",
+    };
+  }
+
+  const { data: leagueRows, error: leagueError } = await supabase
     .from("leagues")
     .update({
       draft_start_time: draftStartTimeRaw ? new Date(draftStartTimeRaw).toISOString() : null,
     })
-    .eq("id", leagueId);
+    .eq("id", leagueId)
+    .select("id");
 
   if (leagueError) {
     return { error: "Failed to save draft start time. Please try again." };
+  }
+
+  // Two tables, written sequentially, with no transaction spanning them — so
+  // the first write can land while the second doesn't. Reporting a flat
+  // failure would be as wrong as reporting success: the pick timer really did
+  // change, and the commissioner needs to know which half to look at.
+  if (!leagueRows || leagueRows.length === 0) {
+    return {
+      error:
+        "Draft settings saved, but the start time didn't — you may not have permission to edit this league.",
+    };
   }
   revalidatePath(`/leagues/${leagueId}/setup`);
   return { error: null };

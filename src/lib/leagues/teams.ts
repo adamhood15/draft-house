@@ -47,11 +47,29 @@ export async function getUserClaimedTeamId(
   userId: string
 ): Promise<string | null> {
   const admin = createAdminClient();
-  const { data } = await admin
+  const { data, error } = await admin
     .from("teams")
     .select("id")
     .eq("league_id", leagueId)
     .eq("owner_id", userId)
     .maybeSingle();
+
+  // `.maybeSingle()` does not throw on two rows — postgrest-js synthesizes
+  // PGRST116 with a null body client-side (dist/index.cjs, isMaybeSingle
+  // branch) and only throws under `.throwOnError()`, which this codebase
+  // never sets. So discarding `error` here would answer "owns no team" for a
+  // user who owns two — indistinguishable from an honest unclaimed user, and
+  // it routes them straight back into claiming a third.
+  //
+  // Duplicate ownership is the exact state the partial unique index on
+  // teams (league_id, owner_id) exists to prevent, so reaching this is a
+  // broken invariant, not a condition to paper over. Fail loudly rather than
+  // fail open.
+  if (error) {
+    throw new Error(
+      `Could not determine the claimed team for user ${userId} in league ${leagueId}: ${error.message}`
+    );
+  }
+
   return data?.id ?? null;
 }
