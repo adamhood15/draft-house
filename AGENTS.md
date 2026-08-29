@@ -84,7 +84,7 @@ not.
 
 ## Documentation
 
-[docs/README.md](docs/README.md) indexes everything. The four you are most likely to need:
+[README.md](README.md) indexes everything. The four you are most likely to need:
 
 - [docs/AGENT_PROTOCOL.md](docs/AGENT_PROTOCOL.md) — Read maps, handoffs, document authority
 - [docs/ENGINEERING.md](docs/ENGINEERING.md) — Code conventions, server authority, Sleeper boundary

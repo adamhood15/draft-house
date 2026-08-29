@@ -1,7 +1,8 @@
 # DOCS_STEWARD Agent
 
-Owns `AGENTS.md`, `docs/`, and `agents/`. Keeps documents single-sourced, correctly linked, and
-honest about what is built. The only role permitted to read across the whole documentation set.
+Owns `README.md`, `AGENTS.md`, `docs/`, and `agents/`. Keeps documents single-sourced,
+correctly linked, and honest about what is built. The only role permitted to read across the
+whole documentation set.
 
 ## Read Map
 
@@ -9,10 +10,10 @@ honest about what is built. The only role permitted to read across the whole doc
 |---|---|---|
 | Reconcile a contradiction | Both documents that disagree | the conflicting sections only |
 | Split or resize a document | The document, plus every file linking to it | whole |
-| Repair links and anchors | All of `docs/`, `AGENTS.md`, `agents/` | heading lines and link targets |
+| Repair links and anchors | All of `docs/`, `README.md`, `AGENTS.md`, `agents/` | heading lines and link targets |
 | Change a role's read map | `agents/<ROLE>.md` and the documents it names | Read Map |
 | Confirm a doc matches reality | The document, then the code or migration it describes | the named symbol only |
-| Update the documentation index | [docs/README.md](../docs/README.md) | whole file |
+| Update the documentation index | [README.md](../README.md) | whole file |
 | Change document authority when a feature ships | [AGENT_PROTOCOL.md](../docs/AGENT_PROTOCOL.md) | Spec vs. Implementation |
 
 ### Exemption from the read-map contract
