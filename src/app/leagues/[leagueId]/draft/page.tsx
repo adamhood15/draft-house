@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ListOrdered } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { buildDraftBoard } from "@/lib/draft/board";
 import { DEFAULT_DRAFT_ORDER_TYPE, isDraftOrderType } from "@/lib/draft/order";
@@ -152,6 +153,20 @@ export default async function DraftRoomPage({
           </Link>
         </header>
       )}
+
+      {/* Sits above the board in both states — the rankings are as useful
+          while everyone waits in the lobby as they are on the clock. An
+          outlined pill rather than a filled one: §6 reserves solid fills for
+          save- and send-type actions, and this only navigates. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Link
+          href={`/leagues/${leagueId}/players`}
+          className="flex items-center gap-1.5 rounded-lg border-2 border-ink bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide shadow-[3px_3px_0_var(--ink)]"
+        >
+          <ListOrdered className="h-3.5 w-3.5" strokeWidth={2.4} aria-hidden />
+          Player rankings
+        </Link>
+      </div>
 
       <DraftBoardGrid board={board} />
 
