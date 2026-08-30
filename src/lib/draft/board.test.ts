@@ -122,10 +122,33 @@ describe("buildDraftBoard layout", () => {
 describe("buildDraftBoard pick numbering", () => {
   it("keeps a seat in its own column as the snake reverses", () => {
     const board = build();
-    // Seat 6 stays in column 6 all draft; only its pick number moves.
+    // Seat 6 stays in column 6 all draft; its pick number AND its label move.
+    // Round 2 runs backwards, so seat 6 picks 3rd — hence 2.03, not 2.06. The
+    // label describes the pick's place in the round, not the column it sits in.
     expect(cellAt(board, 1, 6)).toMatchObject({ pickNumber: 6, label: "1.06" });
-    expect(cellAt(board, 2, 6)).toMatchObject({ pickNumber: 11, label: "2.06" });
+    expect(cellAt(board, 2, 6)).toMatchObject({ pickNumber: 11, label: "2.03" });
     expect(cellAt(board, 3, 6)).toMatchObject({ pickNumber: 22, label: "3.06" });
+  });
+
+  it("reads each round's labels in pick order across the row", () => {
+    // The bug this pins: labels used to come from the seat, so round 2 read
+    // 2.01…2.08 left-to-right while the picks in those cells ran 16…9. The
+    // label and the pick number in the same cell disagreed.
+    const board = build();
+    const roundTwo = board.rows[1].cells;
+
+    expect(roundTwo.map((cell) => cell!.label)).toEqual([
+      "2.08", "2.07", "2.06", "2.05", "2.04", "2.03", "2.02", "2.01",
+    ]);
+    expect(roundTwo.map((cell) => cell!.pickNumber)).toEqual([16, 15, 14, 13, 12, 11, 10, 9]);
+  });
+
+  it("puts the turn of the snake in one column", () => {
+    // 1.08 and 2.01 are consecutive picks owned by the same seat, so they sit
+    // one directly above the other in the rightmost column.
+    const board = build();
+    expect(cellAt(board, 1, 8)).toMatchObject({ pickNumber: 8, label: "1.08" });
+    expect(cellAt(board, 2, 8)).toMatchObject({ pickNumber: 9, label: "2.01" });
   });
 
   it("numbers a linear board straight down each column", () => {

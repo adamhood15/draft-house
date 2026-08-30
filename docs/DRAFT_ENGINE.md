@@ -22,11 +22,22 @@ registry of available orders — adding one there adds it to the settings select
 
 ### Snake
 
-**Pick Order**:
-- Round 1: Teams pick 1→12 (1.01, 1.02, ..., 1.12)
-- Round 2: Teams pick 12→1 (2.12, 2.11, ..., 2.01)
-- Round 3: Teams pick 1→12 (3.01, 3.02, ..., 3.12)
+**Pick Order** — seats reverse each round, labels always count up:
+- Round 1: seats 1→12 (1.01, 1.02, ..., 1.12)
+- Round 2: seats 12→1 (2.01, 2.02, ..., 2.12)
+- Round 3: seats 1→12 (3.01, 3.02, ..., 3.12)
 - Pattern repeats (alternates each round)
+
+**The label is the pick's place in the round, not the seat that owns it.** "2.03"
+is the third pick of round two, which in a snake belongs to the *third-from-last*
+seat. So a team's label alternates: seat 1 in an 8-team league holds 1.01, 2.08,
+3.01, 4.08 — the turn, every round.
+
+This is worth stating because the seat reading is superficially attractive (it
+gives each team a stable label) and quietly wrong. `order.ts` built labels that
+way originally, which put "2.01" on the *last* pick of round two and "2.08" on
+the first. Every even round was backwards, and nothing failed, because each label
+was still a plausible-looking `round.NN`.
 
 **Example (12-team league)**:
 

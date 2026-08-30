@@ -21,8 +21,10 @@ import {
  *   - positionInRound — where the pick falls in that round's *sequence*.
  *     Equal to draftPosition in a linear draft; mirrored on even rounds in a
  *     snake.
- * The display label is built from draftPosition, so a team's label is always
- * `round.<its own seat>` regardless of order type.
+ * The display label is built from positionInRound, not the seat: "2.03" means
+ * the third pick of round two, which is what it means everywhere else in
+ * fantasy football. So a team's label moves between rounds in a snake — seat 1
+ * in an 8-team league reads 1.01, 2.08, 3.01, 4.08 — and that is correct.
  */
 
 const ORDER_TYPES = Object.keys(DRAFT_ORDER_TYPES) as DraftOrderType[];
@@ -84,13 +86,16 @@ describe("snake order", () => {
       round: 2,
       positionInRound: 1,
       draftPosition: 12,
-      label: "2.12",
+      // The FIRST pick of round two, so 2.01 — even though seat 12 owns it.
+      // Labelling by seat would call this "2.12" and put the last label of the
+      // round on its first pick.
+      label: "2.01",
     });
     expect(draftSlotForPick(24, 12, "snake")).toMatchObject({
       round: 2,
       positionInRound: 12,
       draftPosition: 1,
-      label: "2.01",
+      label: "2.12",
     });
   });
 
@@ -110,6 +115,59 @@ describe("snake order", () => {
     expect(pickNumberForSlot(2, 12, 12, "snake")).toBe(13);
     expect(pickNumberForSlot(2, 1, 12, "snake")).toBe(24);
     expect(pickNumberForSlot(3, 1, 12, "snake")).toBe(25);
+  });
+});
+
+describe("snake labels", () => {
+  /**
+   * The label has to agree with the pick number in the same cell. Labelling by
+   * seat did not: in an 8-team snake the cell reading "2.01" held pick #16 —
+   * the LAST pick of the round — while "2.08" held pick #9, the first. Half
+   * the board was backwards, and nothing failed, because every label was a
+   * plausible-looking `round.NN`.
+   */
+
+  it("alternates a seat's label between the ends of the round", () => {
+    // The case a manager actually notices: holding 1.01 in an 8-team snake
+    // means holding 2.08, 3.01, 4.08 — the turn, every round.
+    const seatOne = [1, 2, 3, 4, 5, 6].map(
+      (round) => draftSlotForPick(pickNumberForSlot(round, 1, 8, "snake"), 8, "snake").label
+    );
+
+    expect(seatOne).toEqual(["1.01", "2.08", "3.01", "4.08", "5.01", "6.08"]);
+  });
+
+  it("numbers each round's labels in the order the picks are actually made", () => {
+    // Picks 9..16 are round two, in sequence. Their labels must count up even
+    // though the seats that own them count down.
+    const roundTwo = [9, 10, 11, 12, 13, 14, 15, 16].map((pick) =>
+      draftSlotForPick(pick, 8, "snake")
+    );
+
+    expect(roundTwo.map((slot) => slot.label)).toEqual([
+      "2.01", "2.02", "2.03", "2.04", "2.05", "2.06", "2.07", "2.08",
+    ]);
+    // ...and those seats really do run backwards.
+    expect(roundTwo.map((slot) => slot.draftPosition)).toEqual([8, 7, 6, 5, 4, 3, 2, 1]);
+  });
+
+  it("keeps the turn of the snake in one seat", () => {
+    // Pick 8 ends round one and pick 9 opens round two; both belong to seat 8,
+    // which is what makes them sit in the same column, one above the other.
+    const eighth = draftSlotForPick(8, 8, "snake");
+    const ninth = draftSlotForPick(9, 8, "snake");
+
+    expect(eighth).toMatchObject({ draftPosition: 8, label: "1.08" });
+    expect(ninth).toMatchObject({ draftPosition: 8, label: "2.01" });
+  });
+
+  it("leaves a linear draft's labels equal to its seats", () => {
+    // Nothing mirrors, so label and seat agree in every round — which is why
+    // the seat-based bug was invisible in linear leagues.
+    for (const pick of [1, 8, 9, 16, 17]) {
+      const slot = draftSlotForPick(pick, 8, "linear");
+      expect(slot.label).toBe(formatPickLabel(slot.round, slot.draftPosition));
+    }
   });
 });
 
@@ -256,7 +314,7 @@ describe("totalPicks", () => {
 });
 
 describe("formatPickLabel", () => {
-  it("pads the seat to two digits so labels sort and align", () => {
+  it("pads the position to two digits so labels sort and align", () => {
     expect(formatPickLabel(1, 1)).toBe("1.01");
     expect(formatPickLabel(2, 12)).toBe("2.12");
     expect(formatPickLabel(16, 7)).toBe("16.07");

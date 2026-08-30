@@ -31,7 +31,8 @@ export type BoardCell = {
   round: number;
   /** Seat this cell sits under, 1..leagueSize. */
   draftPosition: number;
-  /** "2.06" — round and seat, per docs/DRAFT_ENGINE.md. */
+  /** "2.06" — round and place in the round, per docs/DRAFT_ENGINE.md. NOT the
+   *  seat: in a snake the label alternates ends while the column does not. */
   label: string;
   /** Team that owns the pick now; differs from the column after a trade. */
   ownerTeamId: string;

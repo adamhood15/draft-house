@@ -82,8 +82,10 @@ describe("DraftBoardGrid headers", () => {
 describe("DraftBoardGrid cells", () => {
   it("shows the round and pick label on an unplayed pick", () => {
     render(<DraftBoardGrid board={board()} />);
-    // Seat 3's second-round pick, per the snake.
-    expect(screen.getByText("2.03")).toBeInTheDocument();
+    // Seat 3's second-round pick in a 4-team snake. Round 2 runs backwards, so
+    // it is the 2nd pick of the round — 2.02, not 2.03. The label is the place
+    // in the round, not the column.
+    expect(screen.getByText("2.02")).toBeInTheDocument();
     expect(screen.getByText("1.01")).toBeInTheDocument();
   });
 
@@ -119,8 +121,9 @@ describe("DraftBoardGrid cells", () => {
   it("marks the pick on the clock with PICKING, not a player name", () => {
     render(<DraftBoardGrid board={board({ currentPickNumber: 5 })} />);
     expect(screen.getAllByText("Picking…")).toHaveLength(1);
-    // Pick 5 is round 2 under seat 4 in a 4-team snake, so its label is gone.
-    expect(screen.queryByText("2.04")).not.toBeInTheDocument();
+    // Pick 5 opens round 2 under seat 4 in a 4-team snake — labelled 2.01 —
+    // so that label is replaced by the clock.
+    expect(screen.queryByText("2.01")).not.toBeInTheDocument();
   });
 
   it("keeps a single surname on a one-word player name", () => {

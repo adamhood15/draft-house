@@ -20,8 +20,20 @@
  *                    mirrored on even rounds in a snake, so a seat-6 team in
  *                    an 8-team snake is 6th out and 3rd back.
  *
- * Only draftPosition identifies a team. The display label is built from it,
- * which is why a team always reads as `round.<its own seat>`.
+ * Only draftPosition identifies a team. **The display label is built from
+ * positionInRound**, because that is what "2.03" means everywhere in fantasy
+ * football and on Sleeper itself: the third pick of round two.
+ *
+ * Labelling by seat instead — which this module did originally — produces a
+ * board whose labels contradict the picks in the very same cells. In an
+ * 8-team snake the cell reading `2.01` held pick #16, the *last* pick of the
+ * round, while the cell reading `2.08` held pick #9, the first. Nothing
+ * failed; the numbers were simply backwards for every even round, which is
+ * exactly half the board.
+ *
+ * The consequence to keep in mind: a team's label is NOT stable across
+ * rounds. Seat 1 in an 8-team snake reads 1.01, 2.08, 3.01, 4.08 — which is
+ * correct, and is how managers actually talk about their picks.
  *
  * Nothing here touches pick *ownership*. Slots are immutable for the life of
  * the draft; a traded pick moves draft_picks.team_id, leaves original_team_id
@@ -89,7 +101,7 @@ export type DraftSlot = {
   positionInRound: number;
   /** Seat that owns the slot, 1..leagueSize. Matches teams.draft_position. */
   draftPosition: number;
-  /** Display label, `round.seat` — "1.01", "2.12". */
+  /** Display label, `round.positionInRound` — "1.01", "2.12". */
   label: string;
 };
 
@@ -110,9 +122,16 @@ function definitionFor(orderType: DraftOrderType): DraftOrderTypeDefinition {
   return definition;
 }
 
-/** Display label for a pick, `round.seat` with the seat padded to two digits. */
-export function formatPickLabel(round: number, draftPosition: number): string {
-  return `${round}.${String(draftPosition).padStart(2, "0")}`;
+/**
+ * Display label for a pick — `round.positionInRound`, padded to two digits.
+ *
+ * The second argument is the pick's place in the round's sequence, NOT the
+ * seat that owns it. The two are equal in a linear draft and mirrored on even
+ * rounds of a snake, so passing the wrong one is silently correct half the
+ * time — see the note on positionInRound at the top of this module.
+ */
+export function formatPickLabel(round: number, positionInRound: number): string {
+  return `${round}.${String(positionInRound).padStart(2, "0")}`;
 }
 
 /** Total slots on the board — every seat picks in every round. */
@@ -141,7 +160,7 @@ export function draftSlotForPick(
     round,
     positionInRound,
     draftPosition,
-    label: formatPickLabel(round, draftPosition),
+    label: formatPickLabel(round, positionInRound),
   };
 }
 
