@@ -31,10 +31,10 @@ Trigger sends notification → WebSocket server → Broadcast to subscribers
 ```javascript
 // Client subscribes to real-time changes
 const subscription = supabase
-  .channel('public:picks')
+  .channel('public:draft_picks')
   .on(
     'postgres_changes',
-    { event: 'INSERT', schema: 'public', table: 'picks' },
+    { event: 'INSERT', schema: 'public', table: 'draft_picks' },
     (payload) => {
       console.log('New pick:', payload.new);
     }
@@ -58,36 +58,36 @@ supabase
     { 
       event: 'UPDATE', 
       schema: 'public', 
-      table: 'draft_state',
+      table: 'drafts',
       filter: `league_id=eq.${league_id}`
     },
     (payload) => {
-      const { current_pick_number, timer_seconds, timer_paused } = payload.new;
+      const { current_pick_no, timer_seconds, timer_paused } = payload.new;
       updateUI({ timer_seconds, timer_paused });
-      highlightCurrentTeam(current_pick_number);
+      highlightCurrentTeam(current_pick_no);
     }
   )
   .subscribe();
 ```
 
-**Broadcast**: Whenever `draft_state` changes
+**Broadcast**: Whenever `drafts` changes
 
 **Example event**:
 ```json
 {
   "type": "UPDATE",
-  "table": "draft_state",
+  "table": "drafts",
   "schema": "public",
   "new": {
     "league_id": "league_123",
-    "current_pick_number": 2,
+    "current_pick_no": 2,
     "current_team_id": "team_2",
     "timer_seconds": 45,
     "timer_paused": false
   },
   "old": {
     "league_id": "league_123",
-    "current_pick_number": 1,
+    "current_pick_no": 1,
     "current_team_id": "team_1",
     "timer_seconds": 60,
     "timer_paused": false
@@ -103,13 +103,13 @@ supabase
 
 ```javascript
 supabase
-  .channel(`picks:${league_id}`)
+  .channel(`draft_picks:${league_id}`)
   .on(
     'postgres_changes',
     { 
       event: 'INSERT', 
       schema: 'public', 
-      table: 'picks',
+      table: 'draft_picks',
       filter: `league_id=eq.${league_id}`
     },
     (payload) => {
@@ -351,12 +351,12 @@ Subscribe to specific table changes:
 ```javascript
 const setupPickSubscriptions = (league_id) => {
   supabase
-    .channel(`picks:${league_id}`)
+    .channel(`draft_picks:${league_id}`)
     .on('postgres_changes',
       { 
         event: 'INSERT',
         schema: 'public',
-        table: 'picks',
+        table: 'draft_picks',
         filter: `league_id=eq.${league_id}`
       },
       (payload) => handleNewPick(payload.new)
@@ -407,7 +407,7 @@ const useDraftState = (league_id) => {
         { 
           event: 'UPDATE',
           schema: 'public',
-          table: 'draft_state',
+          table: 'drafts',
           filter: `league_id=eq.${league_id}`
         },
         (payload) => setDraft(payload.new)
@@ -542,13 +542,13 @@ Each client maintains a WebSocket connection. For 12 participants:
 const channel = supabase
   .channel('test')
   .on('postgres_changes',
-    { event: '*', schema: 'public', table: 'picks' },
+    { event: '*', schema: 'public', table: 'draft_picks' },
     (payload) => console.log('Received:', payload)
   )
   .subscribe();
 
 // In database, run:
-// INSERT INTO picks (...) VALUES (...)
+// UPDATE draft_picks SET status = 'completed', ... WHERE id = ...
 // You should see the event logged
 ```
 

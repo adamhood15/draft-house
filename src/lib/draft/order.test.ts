@@ -182,7 +182,7 @@ describe("an 8-team, 13-round snake board", () => {
     });
   });
 
-  it("gives draft position 6 the pick numbers that seed its team_pick_assignments", () => {
+  it("gives draft position 6 the pick numbers that seed its draft_picks rows", () => {
     const seatSixPicks = generateDraftOrder(LEAGUE_SIZE, ROUNDS, "snake")
       .filter((slot) => slot.draftPosition === 6)
       .map((slot) => slot.pickNumber);
@@ -194,24 +194,26 @@ describe("an 8-team, 13-round snake board", () => {
 describe("every registered order type", () => {
   const LEAGUE_SIZE = 8;
   const ROUNDS = 13;
+  const TOTAL_PICKS = LEAGUE_SIZE * ROUNDS;
+  const SEATS = Array.from({ length: LEAGUE_SIZE }, (_, index) => index + 1);
 
-  it.each(ORDER_TYPES)("%s fills all 104 slots, 13 to each of the 8 seats", (type) => {
+  it.each(ORDER_TYPES)("%s fills every slot, one per seat per round", (type) => {
     const board = generateDraftOrder(LEAGUE_SIZE, ROUNDS, type);
     const picksPerSeat = new Map<number, number>();
     for (const slot of board) {
       picksPerSeat.set(slot.draftPosition, (picksPerSeat.get(slot.draftPosition) ?? 0) + 1);
     }
 
-    expect(board).toHaveLength(104);
-    expect(new Set(board.map((slot) => slot.pickNumber)).size).toBe(104);
-    expect([...picksPerSeat.keys()].sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
-    expect([...picksPerSeat.values()]).toEqual(Array(8).fill(ROUNDS));
+    expect(board).toHaveLength(TOTAL_PICKS);
+    expect(new Set(board.map((slot) => slot.pickNumber)).size).toBe(TOTAL_PICKS);
+    expect([...picksPerSeat.keys()].sort((a, b) => a - b)).toEqual(SEATS);
+    expect([...picksPerSeat.values()]).toEqual(Array(LEAGUE_SIZE).fill(ROUNDS));
   });
 
   it.each(ORDER_TYPES)("%s emits slots in pick order", (type) => {
     const board = generateDraftOrder(LEAGUE_SIZE, ROUNDS, type);
     expect(board.map((slot) => slot.pickNumber)).toEqual(
-      Array.from({ length: 104 }, (_, index) => index + 1)
+      Array.from({ length: TOTAL_PICKS }, (_, index) => index + 1)
     );
   });
 

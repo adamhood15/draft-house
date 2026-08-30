@@ -83,7 +83,7 @@ walk-up-songs/
 - Supported formats: MP3, WAV, OGG, AAC/M4A (`audio/mpeg`, `audio/wav`, `audio/x-wav`, `audio/ogg`, `audio/aac`, `audio/mp4`, `audio/x-m4a`). Browsers report m4a inconsistently, so a recognized *extension* (`mp3`, `wav`, `ogg`, `aac`, `m4a`) is accepted on its own — a file is rejected only when neither signal matches.
 - Max file size: 10 MB
 - Naming: `teams/{team_id}/song.{ext}` — re-uploading in a different format replaces the old file rather than orphaning it (see `src/lib/storage.ts`)
-- All writes go through the admin client server-side (`src/lib/leagues/team-actions.ts`'s `updateTeam`), never the browser directly — same pattern as `leagues`/`draft_settings`/`teams` writes elsewhere in the app. No `storage.objects` RLS policies needed as a result.
+- All writes go through the admin client server-side (`src/lib/leagues/team-actions.ts`'s `updateTeam`), never the browser directly — same pattern as `leagues`/`drafts`/`teams` writes elsewhere in the app. No `storage.objects` RLS policies needed as a result.
 - The browser holds no Storage credentials. The client posts the file to the `updateTeam` server action as `FormData`; that action performs the upload with the service-role client and writes `teams.walk_up_song_url`.
 
 **Upload Handler**:
@@ -189,7 +189,7 @@ if (error) {
 
 ```
 // When draft state changes to a team's pick in Round 1
-if (draft_state.current_round === 1 && team_changed) {
+if (drafts.current_round === 1 && team_changed) {
   const team = getCurrentTeam();
   if (team.walk_up_song_url) {
     audioPlayer.play(team.walk_up_song_url);
@@ -205,7 +205,7 @@ if (draft_state.current_round === 1 && team_changed) {
 
 ```javascript
 // Server: When pick advances to Round 1 player
-UPDATE draft_state SET current_pick_number = 2, current_team_id = team_2;
+UPDATE drafts SET current_pick_no = 2, current_team_id = team_2;
   Realtime event → song_started = now()
 
 // All clients receive event with timestamp
@@ -360,9 +360,9 @@ const playDraftChime = () => {
 
 // Triggered when pick is made
 supabase
-  .channel(`picks:${league_id}`)
+  .channel(`draft_picks:${league_id}`)
   .on('postgres_changes',
-    { event: 'INSERT', schema: 'public', table: 'picks' },
+    { event: 'INSERT', schema: 'public', table: 'draft_picks' },
     (payload) => {
       playDraftChime();  // Play on new pick
       updateActivityFeed(payload.new);

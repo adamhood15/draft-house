@@ -49,15 +49,31 @@ export function sleeperUsersPayload(): Record<string, unknown>[] {
   ];
 }
 
+/**
+ * Shaped after a real GET /draft/<draft_id> response, verified against league
+ * 1357756813482684416. The timer field is `pick_timer` — there is no
+ * `seconds_per_pick` on Sleeper, and this fixture used to invent one, which is
+ * how the import came to read a field that never existed.
+ */
+export function sleeperDraftPayload(): Record<string, unknown> {
+  return {
+    draft_id: "draft_123",
+    league_id: "1234567890",
+    type: "snake",
+    status: "pre_draft",
+    sport: "nfl",
+    season: "2026",
+    season_type: "regular",
+    start_time: 1788110110440,
+    settings: { rounds: 16, teams: 12, pick_timer: 30, slots_qb: 1, slots_rb: 2 },
+    metadata: { scoring_type: "ppr", name: "Draft", description: "" },
+    draft_order: { user_123: 1, user_456: 2 },
+    slot_to_roster_id: { "1": 7, "2": 3 },
+  };
+}
+
 export function sleeperDraftsPayload(): Record<string, unknown>[] {
-  return [
-    {
-      draft_id: "draft_123",
-      league_id: "1234567890",
-      type: "snake",
-      settings: { rounds: 16, slots_taken: 12, seconds_per_pick: 60 },
-    },
-  ];
+  return [sleeperDraftPayload()];
 }
 
 export function sleeperUserLookupPayload(): Record<string, unknown> {

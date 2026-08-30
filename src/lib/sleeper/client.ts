@@ -5,6 +5,7 @@ import {
   SleeperUnavailableError,
 } from "@/lib/sleeper/errors";
 import {
+  validateSleeperDraft,
   validateSleeperDrafts,
   validateSleeperLeague,
   validateSleeperLeagueSummaries,
@@ -84,6 +85,18 @@ export function fetchSleeperRosters(leagueId: string) {
 
 export function fetchSleeperUsers(leagueId: string) {
   return sleeperFetch(`/league/${leagueId}/users`, validateSleeperUsers);
+}
+
+/**
+ * The league's draft, by id.
+ *
+ * Preferred over fetchSleeperDrafts: /league/<id>/drafts returns an array that
+ * includes prior seasons, so taking [0] picks whichever Sleeper happened to
+ * order first. It is also the only endpoint that carries slot_to_roster_id, the
+ * authoritative seat mapping.
+ */
+export function fetchSleeperDraft(draftId: string) {
+  return sleeperFetch(`/draft/${draftId}`, validateSleeperDraft);
 }
 
 export function fetchSleeperDrafts(leagueId: string) {

@@ -5,7 +5,6 @@ export type InviteLeague = {
   id: string;
   name: string;
   season: number;
-  draft_status: string;
 };
 
 export type UnclaimedTeam = {
@@ -24,7 +23,7 @@ export async function getLeagueByInviteToken(inviteToken: string): Promise<Invit
   const admin = createAdminClient();
   const { data } = await admin
     .from("leagues")
-    .select("id, name, season, draft_status")
+    .select("id, name, season")
     .eq("invite_token", inviteToken)
     .is("deleted_at", null)
     .maybeSingle();

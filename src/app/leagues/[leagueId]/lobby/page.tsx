@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { TeamRoster } from "@/components/team-roster";
+import { StartDraftButton } from "./start-draft-button";
 
 export default async function LeagueLobbyPage({
   params,
@@ -46,6 +47,14 @@ export default async function LeagueLobbyPage({
 
   const isCommissioner = league.commissioner_id === user.id;
 
+  // The draft's lifecycle lives on the draft, not the league — leagues.draft_status
+  // was dropped when drafts absorbed it (see the consolidation migration).
+  const { data: draft } = await supabase
+    .from("drafts")
+    .select("status")
+    .eq("league_id", leagueId)
+    .single();
+
   const { data: teams } = await supabase
     .from("teams")
     .select("id, draft_house_team_name, team_image_url, owner_id")
@@ -74,6 +83,16 @@ export default async function LeagueLobbyPage({
         <h1 className="font-display text-2xl">{league.name}</h1>
         <p className="text-sm text-ink/70">Draft lobby — coming soon.</p>
         <div className="flex justify-center gap-4">
+          {/* Open to everyone in the league, not just the commissioner, and
+              before the draft starts — the board renders from the teams and
+              roster settings, so waiting players can see their seat and their
+              pick numbers. */}
+          <Link
+            href={`/leagues/${leagueId}/draft`}
+            className="text-sm font-bold text-purple underline"
+          >
+            View Draft Board
+          </Link>
           {viewerHasClaimed && (
             <Link
               href={`/leagues/${leagueId}/team`}
@@ -117,6 +136,22 @@ export default async function LeagueLobbyPage({
           canClaim={!viewerHasClaimed}
         />
       </section>
+
+      {isCommissioner && draft?.status === "lobby" && (
+        <StartDraftButton
+          leagueId={leagueId}
+          unclaimedTeams={allTeams.filter((team) => !team.owner_id).length}
+        />
+      )}
+
+      {draft?.status === "drafting" && (
+        <Link
+          href={`/leagues/${leagueId}/draft`}
+          className="self-end text-sm font-bold text-purple underline"
+        >
+          The draft is live — go to the draft room &rarr;
+        </Link>
+      )}
     </div>
   );
 }

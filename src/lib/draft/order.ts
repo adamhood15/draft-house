@@ -14,8 +14,9 @@
  *                    Matches teams.draft_position. This is the team's
  *                    identity — it never moves, whatever the order type.
  *   positionInRound  where the pick falls in that round's *sequence* (1..N).
- *                    The `position_in_round` column on team_pick_assignments
- *                    and picks. Equal to draftPosition in a linear draft;
+ *                    Not stored anywhere — it is derivable from pickNumber
+ *                    and leagueSize, and the columns that used to hold it
+ *                    could drift. Equal to draftPosition in a linear draft;
  *                    mirrored on even rounds in a snake, so a seat-6 team in
  *                    an 8-team snake is 6th out and 3rd back.
  *
@@ -23,8 +24,8 @@
  * which is why a team always reads as `round.<its own seat>`.
  *
  * Nothing here touches pick *ownership*. Slots are immutable for the life of
- * the draft; a traded pick moves team_pick_assignments.current_owner_team_id
- * and leaves this math alone (docs/TRADES.md).
+ * the draft; a traded pick moves draft_picks.team_id, leaves original_team_id
+ * alone, and does not touch this math at all (docs/TRADES.md).
  */
 
 export type DraftOrderTypeDefinition = {
@@ -65,13 +66,13 @@ export const DRAFT_ORDER_TYPES = {
 
 export type DraftOrderType = keyof typeof DRAFT_ORDER_TYPES;
 
-/** What a league drafts as unless the commissioner changes it (leagues.draft_format default). */
+/** What a league drafts as unless the commissioner changes it (drafts.type default). */
 export const DEFAULT_DRAFT_ORDER_TYPE: DraftOrderType = "snake";
 
 /**
  * Server-side gate on the draft settings form, which posts an arbitrary
- * string. Also narrows leagues.draft_format, which the database types as a
- * bare `text`.
+ * string. Also narrows drafts.type, whose CHECK constraint is a value set
+ * rather than this module's registry — the two can disagree.
  */
 export function isDraftOrderType(value: unknown): value is DraftOrderType {
   return (
@@ -101,8 +102,9 @@ function assertCount(value: number, name: string): void {
 function definitionFor(orderType: DraftOrderType): DraftOrderTypeDefinition {
   const definition = DRAFT_ORDER_TYPES[orderType];
   if (!definition) {
-    // Reachable despite the type: leagues.draft_format is `text`, so a row
-    // written before an order type was retired still reaches this call.
+    // Reachable despite the type: drafts.type is constrained to a value set,
+    // not to this registry, so a row written before an order type was retired
+    // still reaches this call.
     throw new Error(`Unknown draft order type "${orderType}".`);
   }
   return definition;
@@ -165,8 +167,8 @@ export function pickNumberForSlot(
 }
 
 /**
- * Every slot on the board, in pick order — the source for the draft_board and
- * team_pick_assignments rows written at draft load.
+ * Every slot on the board, in pick order — the source for the draft_picks rows
+ * written at draft load.
  */
 export function generateDraftOrder(
   leagueSize: number,

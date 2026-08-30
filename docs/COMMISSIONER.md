@@ -31,7 +31,8 @@ Server validates:
   ✓ Player not drafted
   ✓ Roster spot available
     ↓
-INSERT INTO picks (...)
+UPDATE draft_picks SET status = 'completed', sleeper_player_id = ..., picked_at = now()
+  WHERE league_id = ? AND pick_no = ?
     ↓
 Draft advances (same as normal pick)
 ```
@@ -43,18 +44,20 @@ Commissioner can undo picks one at a time, starting with the most recent pick. T
 **Single Undo (Most Recent Pick Only)**:
 
 ```
-Current state: Pick #47 completed, current_pick_number = 48
+Current state: Pick #47 completed, current_pick_no = 48
 Commissioner clicks "Undo Pick"
     ↓
-DELETE FROM picks WHERE id = pick_47_id
+UPDATE draft_picks SET
+  status = 'pending',
+  sleeper_player_id = null, player_name = null,
+  player_position = null, player_nfl_team = null,
+  picked_by = null, picked_at = null
+  WHERE league_id = ? AND pick_no = 47
     ↓
 UPDATE rosters SET players = array_remove(players, player_id_of_pick_47)
   WHERE team_id = team_from_pick_47
     ↓
-UPDATE draft_state SET current_pick_number = 47
-    ↓
-UPDATE draft_board SET status = 'pending'
-  WHERE pick_number = 47
+UPDATE drafts SET current_pick_no = 47
     ↓
 Timer resets to default
     ↓
@@ -70,15 +73,15 @@ All clients see:
 **Sequential Undo (Building Back)**:
 
 ```
-After first undo: current_pick_number = 47
+After first undo: current_pick_no = 47
 Pick #46 completed by Team B (drafted Player Y)
 Commissioner sees "Undo" button again (only for most recent)
     ↓
 Clicks "Undo Pick"
     ↓
-DELETE FROM picks WHERE id = pick_46_id
+DELETE FROM draft_picks WHERE id = pick_46_id
     ↓
-UPDATE draft_state SET current_pick_number = 46
+UPDATE drafts SET current_pick_no = 46
     ↓
 Revert to Team from Pick #46 (back on clock)
     ↓
@@ -124,7 +127,7 @@ ARCHIVE PHASE (backup before deletion):
     ↓
     INSERT INTO draft_reset_archive (league_id, archived_picks, archived_messages, archived_reactions, archived_at)
       SELECT league_id, 
-             array_agg(picks.*), 
+             array_agg(draft_picks.*), 
              array_agg(chat_messages.*),
              array_agg(reactions.*)
       WHERE league_id = ?
@@ -133,23 +136,27 @@ ARCHIVE PHASE (backup before deletion):
     ↓
 RESET PHASE (clean deletion):
     ↓
-    DELETE FROM picks WHERE league_id = ?
+    -- NOT a DELETE: the rows are the slots. Clearing them keeps the board.
+    UPDATE draft_picks SET
+      status = 'pending',
+      sleeper_player_id = null, player_name = null,
+      player_position = null, player_nfl_team = null,
+      picked_by = null, picked_at = null
+      WHERE league_id = ?
     ↓
     DELETE FROM chat_messages WHERE league_id = ? AND message_type IN ('pick', 'trade', 'system')
     ↓
     DELETE FROM reactions WHERE league_id = ?
     ↓
-    UPDATE draft_state SET 
-      current_pick_number = 1,
+    UPDATE drafts SET 
+      current_pick_no = 1,
       timer_seconds = 60,
       timer_paused = false,
       draft_reset_at = now()
     ↓
-    UPDATE leagues SET draft_status = 'drafting' WHERE id = league_id
+    UPDATE drafts SET status = 'drafting' WHERE league_id = ?
     ↓
     UPDATE rosters SET players = '[]' WHERE league_id = ?
-    ↓
-    UPDATE draft_board SET status = 'pending' WHERE league_id = ?
     ↓
     INSERT INTO chat_messages:
       message_type: 'system'

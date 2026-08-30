@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SleeperShapeError, SleeperUnavailableError } from "@/lib/sleeper/errors";
 import {
+  validateSleeperDraft,
   validateSleeperDrafts,
   validateSleeperLeague,
   validateSleeperLeagueSummaries,
@@ -10,6 +11,7 @@ import {
   validateSleeperUsers,
 } from "@/lib/sleeper/validate";
 import {
+  sleeperDraftPayload,
   sleeperDraftsPayload,
   sleeperLeaguePayload,
   sleeperLeagueSummariesPayload,
@@ -181,34 +183,138 @@ describe("validateSleeperUsers", () => {
   it("rejects a body that is not an array", () => {
     expect(() => validateSleeperUsers(null, "/league/1/users")).toThrow(SleeperShapeError);
   });
-});
 
-describe("validateSleeperDrafts", () => {
-  it("returns the draft settings the import consumes", () => {
-    const drafts = validateSleeperDrafts(sleeperDraftsPayload(), "/league/1/drafts");
-
-    expect(drafts[0].draft_id).toBe("draft_123");
-    expect(drafts[0].settings?.seconds_per_pick).toBe(60);
-  });
-
-  it("tolerates a league with no drafts yet", () => {
-    expect(validateSleeperDrafts([], "/league/1/drafts")).toEqual([]);
-  });
-
-  it("drops a non-integer seconds_per_pick so the integer column never sees it", () => {
-    const drafts = validateSleeperDrafts(
-      [{ draft_id: "draft_123", type: "snake", settings: { seconds_per_pick: 60.5 } }],
-      "/league/1/drafts"
+  it("keeps the team name and uploaded avatar Sleeper puts on the user", () => {
+    const users = validateSleeperUsers(
+      [
+        {
+          user_id: "u1",
+          display_name: "khood2",
+          avatar: "abc",
+          metadata: {
+            team_name: "Juwanna Wanga",
+            avatar: "https://sleepercdn.com/uploads/61d65e9a.jpg",
+            allow_pn: "on",
+          },
+        },
+      ],
+      "/league/1/users"
     );
 
-    // transformDraftSettings then falls back to its documented 60s default.
-    expect(drafts[0].settings?.seconds_per_pick).toBeUndefined();
+    expect(users[0].metadata?.team_name).toBe("Juwanna Wanga");
+    expect(users[0].metadata?.avatar).toBe("https://sleepercdn.com/uploads/61d65e9a.jpg");
+  });
+
+  it("drops a metadata avatar that is not an https URL", () => {
+    // The value is rendered in an <img src>. A profile field is
+    // attacker-controlled, so a non-https scheme is dropped at the boundary
+    // rather than stored and dealt with later.
+    for (const avatar of [
+      "javascript:alert(1)",
+      "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=",
+      "http://sleepercdn.com/uploads/x.jpg",
+      "not a url",
+    ]) {
+      const users = validateSleeperUsers(
+        [{ user_id: "u1", display_name: "d", avatar: null, metadata: { avatar } }],
+        "/league/1/users"
+      );
+      expect(users[0].metadata?.avatar).toBeUndefined();
+    }
+  });
+
+  it("tolerates a user with no metadata at all", () => {
+    const users = validateSleeperUsers(
+      [{ user_id: "u1", display_name: "d", avatar: null }],
+      "/league/1/users"
+    );
+    expect(users[0].metadata).toBeNull();
+  });
+
+  it("rejects metadata that is not an object", () => {
+    expect(() =>
+      validateSleeperUsers(
+        [{ user_id: "u1", display_name: "d", avatar: null, metadata: "nope" }],
+        "/league/1/users"
+      )
+    ).toThrow(SleeperShapeError);
+  });
+});
+
+describe("validateSleeperDraft", () => {
+  it("returns the draft settings the import consumes", () => {
+    const draft = validateSleeperDraft(sleeperDraftPayload(), "/draft/draft_123");
+
+    expect(draft.draft_id).toBe("draft_123");
+    expect(draft.type).toBe("snake");
+    expect(draft.status).toBe("pre_draft");
+    expect(draft.season).toBe("2026");
+    expect(draft.start_time).toBe(1788110110440);
+    expect(draft.settings?.rounds).toBe(16);
+    // `pick_timer` is the real field name. Reading a `seconds_per_pick` that
+    // Sleeper never sends meant every import silently took the 60s default.
+    expect(draft.settings?.pick_timer).toBe(30);
+  });
+
+  it("keeps pick_timer: 0 rather than reading it as absent", () => {
+    // 0 is Sleeper's "unlimited". Dropping it would restore the 60s default on
+    // exactly the leagues that deliberately turned the clock off.
+    const draft = validateSleeperDraft(
+      { ...sleeperDraftPayload(), settings: { rounds: 16, pick_timer: 0 } },
+      "/draft/draft_123"
+    );
+    expect(draft.settings?.pick_timer).toBe(0);
+  });
+
+  it("drops a non-integer pick_timer so the integer column never sees it", () => {
+    const draft = validateSleeperDraft(
+      { ...sleeperDraftPayload(), settings: { pick_timer: 60.5 } },
+      "/draft/draft_123"
+    );
+    // transformDraft then falls back to its documented 60s default.
+    expect(draft.settings?.pick_timer).toBeUndefined();
+  });
+
+  it("carries slot_to_roster_id, which only this endpoint returns", () => {
+    const draft = validateSleeperDraft(sleeperDraftPayload(), "/draft/draft_123");
+    expect(draft.slot_to_roster_id).toEqual({ "1": 7, "2": 3 });
+    expect(draft.draft_order).toEqual({ user_123: 1, user_456: 2 });
+  });
+
+  it("keeps settings and metadata whole for the jsonb columns", () => {
+    // The provenance copy exists to hold fields nothing reads yet, so it must
+    // not be narrowed to the two values promoted into real columns.
+    const draft = validateSleeperDraft(sleeperDraftPayload(), "/draft/draft_123");
+
+    expect(draft.raw_settings).toMatchObject({ slots_qb: 1, slots_rb: 2, teams: 12 });
+    expect(draft.metadata).toEqual({ scoring_type: "ppr", name: "Draft", description: "" });
+  });
+
+  it("tolerates a draft with no settings block at all", () => {
+    const draft = validateSleeperDraft(
+      without(sleeperDraftPayload(), "settings"),
+      "/draft/draft_123"
+    );
+    expect(draft.settings).toBeNull();
+    expect(draft.raw_settings).toBeNull();
   });
 
   it("rejects a draft with no draft_id", () => {
     expect(() =>
-      validateSleeperDrafts([without(sleeperDraftsPayload()[0], "draft_id")], "/league/1/drafts")
+      validateSleeperDraft(without(sleeperDraftPayload(), "draft_id"), "/draft/draft_123")
     ).toThrow(SleeperShapeError);
+  });
+});
+
+describe("validateSleeperDrafts", () => {
+  it("validates every entry in the list", () => {
+    const drafts = validateSleeperDrafts(sleeperDraftsPayload(), "/league/1/drafts");
+    expect(drafts[0].draft_id).toBe("draft_123");
+    expect(drafts[0].settings?.pick_timer).toBe(30);
+  });
+
+  it("tolerates a league with no drafts yet", () => {
+    expect(validateSleeperDrafts([], "/league/1/drafts")).toEqual([]);
   });
 });
 

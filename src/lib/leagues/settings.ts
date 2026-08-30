@@ -7,8 +7,11 @@ import { isDraftOrderType } from "@/lib/draft/order";
 import type { SettingsState } from "@/lib/leagues/state";
 
 // Unlike import (see src/lib/leagues/import.ts), these are plain authenticated
-// writes — leagues_update/draft_settings_update RLS policies already restrict
-// them to the league's commissioner, so no admin client is needed here.
+// writes — the leagues_update and drafts_update RLS policies already restrict
+// them to the league's commissioner, so no admin client is needed here. On
+// drafts a column grant narrows it further: the commissioner can set the
+// settings below and nothing else, so the live clock stays server-authoritative
+// even though the row is client-writable.
 
 function parsePositions(formData: FormData) {
   const positions: Record<string, number> = {};
@@ -98,63 +101,51 @@ export async function updateDraftSettings(
   const draftStartTimeRaw = String(formData.get("draft_start_time") ?? "");
   const draftFormat = formData.get("draft_format");
 
-  if (!Number.isFinite(secondsPerPick) || secondsPerPick < 10) {
+  // "No timer" is pick_timer = 0 — Sleeper's own convention, and the reason
+  // there is no separate timer_enabled column any more. The floor only applies
+  // when the clock is actually on; 0 and 30 are both valid, 5 is a typo.
+  if (timerEnabled && (!Number.isFinite(secondsPerPick) || secondsPerPick < 10)) {
     return { error: "Seconds per pick must be at least 10." };
   }
-  // Checked here, before either write, rather than left to the database:
-  // leagues.draft_format is a bare `text` with no CHECK behind it (matching
-  // scoring_format and draft_status), so an unrecognized value would be
-  // accepted and only surface at draft load, when draftSlotForPick throws on
-  // a board it cannot lay out.
+  const pickTimer = timerEnabled ? secondsPerPick : 0;
+
+  // Checked here, before the write, rather than left to the database. The
+  // drafts_type_check constraint would catch an unrecognized value, but a
+  // rejected form gives the commissioner a message where a 23514 gives them a
+  // failed save — and a value that passed the constraint but left this
+  // module's registry would still only surface at draft load, when
+  // draftSlotForPick throws on a board it cannot lay out.
   if (!isDraftOrderType(draftFormat)) {
     return { error: "Invalid draft order." };
   }
 
   const supabase = await createClient();
 
-  const { data: draftSettingsRows, error: draftSettingsError } = await supabase
-    .from("draft_settings")
+  // One table, one write. This used to be two sequential updates with no
+  // transaction spanning them, so the pick timer could save while the draft
+  // order didn't — a half-applied save the action had to describe in its own
+  // error message. Consolidating drafts made that failure mode unreachable.
+  const { data: rows, error } = await supabase
+    .from("drafts")
     .update({
-      seconds_per_pick: secondsPerPick,
-      timer_enabled: timerEnabled,
+      pick_timer: pickTimer,
       allow_pick_trading: allowPickTrading,
+      start_time: draftStartTimeRaw ? new Date(draftStartTimeRaw).toISOString() : null,
+      type: draftFormat,
     })
     .eq("league_id", leagueId)
-    .select("league_id");
+    .select("id");
 
-  if (draftSettingsError) {
+  if (error) {
     return { error: "Failed to save draft settings. Please try again." };
   }
 
-  if (!draftSettingsRows || draftSettingsRows.length === 0) {
+  if (!rows || rows.length === 0) {
     return {
       error: "Couldn't save draft settings — you may not have permission to edit this league.",
     };
   }
 
-  const { data: leagueRows, error: leagueError } = await supabase
-    .from("leagues")
-    .update({
-      draft_start_time: draftStartTimeRaw ? new Date(draftStartTimeRaw).toISOString() : null,
-      draft_format: draftFormat,
-    })
-    .eq("id", leagueId)
-    .select("id");
-
-  if (leagueError) {
-    return { error: "Failed to save draft start time. Please try again." };
-  }
-
-  // Two tables, written sequentially, with no transaction spanning them — so
-  // the first write can land while the second doesn't. Reporting a flat
-  // failure would be as wrong as reporting success: the pick timer really did
-  // change, and the commissioner needs to know which half to look at.
-  if (!leagueRows || leagueRows.length === 0) {
-    return {
-      error:
-        "Draft settings saved, but the draft order and start time didn't — you may not have permission to edit this league.",
-    };
-  }
   revalidatePath(`/leagues/${leagueId}/setup`);
   return { error: null };
 }
@@ -182,11 +173,13 @@ export async function saveDraftSettings(
 // and TS allows a bound action to accept fewer params than the caller passes.
 export async function confirmLeagueSetup(leagueId: string): Promise<SettingsState> {
   const supabase = await createClient();
+  // Guarded on the current status, so confirming twice is a no-op rather than
+  // a way to drag a live draft back into the lobby.
   const { error, data } = await supabase
-    .from("leagues")
-    .update({ draft_status: "lobby" })
-    .eq("id", leagueId)
-    .eq("draft_status", "setup")
+    .from("drafts")
+    .update({ status: "lobby" })
+    .eq("league_id", leagueId)
+    .eq("status", "setup")
     .select("id");
 
   if (error || !data || data.length === 0) {

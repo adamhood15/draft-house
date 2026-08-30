@@ -124,209 +124,35 @@ Seeding means automatically populating your database with test data so you can t
 
 #### Seed Script Structure
 
-Create `scripts/seed-from-sleeper.js`:
+The script lives at [`scripts/seed-from-sleeper.js`](../scripts/seed-from-sleeper.js). It is the
+source of truth for what seeding does; this document deliberately no longer reproduces it.
 
-```javascript
-// scripts/seed-from-sleeper.js
-require('dotenv').config({ path: '.env.local' });
+A prose copy used to live here and had already drifted from the real thing — it read
+`league.settings.scoring_format` (a field Sleeper does not send), seeded `draft_position` from
+`roster_id` (Sleeper's team identifier, not its draft slot), and wrote tables that no longer exist.
+A second copy of a script is a second thing to keep correct, and this one was not.
 
-const { createClient } = require('@supabase/supabase-js');
+**What it does, in order:**
 
-// Initialize Supabase client with service role key (more permissions)
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+1. Fetches the league, its rosters and its users from Sleeper in parallel, then fetches the draft by
+   `league.draft_id` — not `/league/<id>/drafts`, whose array spans prior seasons.
+2. Clears existing data in FK-safe order. Note `reactions` and `chat_messages` come before
+   `draft_picks`, which is a parent now that slots and picks are one table.
+3. Creates the `leagues` row.
+4. Creates the `drafts` row — Sleeper's draft object, with `rounds` and `pick_timer` promoted to
+   real columns and `settings`/`metadata` kept verbatim as provenance.
+5. Creates `teams`, seating them via `assignDraftPositions` — the same module the app import uses,
+   so seeded seats and imported seats can never disagree.
 
-// Fetch from Sleeper API
-const fetchFromSleeper = async (path) => {
-  const res = await fetch(`https://api.sleeper.app/v1${path}`);
-  if (!res.ok) {
-    throw new Error(`Sleeper API error: ${res.status} ${res.statusText}`);
-  }
-  return res.json();
-};
+**Where it stops:** the lobby. `draft_picks` and `rosters` are written by `startDraft`
+([`src/lib/draft/start.ts`](../src/lib/draft/start.ts)) when the commissioner starts the draft.
+Pre-creating them here would both duplicate the pick-order algorithm and make `startDraft` fail on
+its own uniqueness constraints.
 
-async function seedDatabase() {
-  try {
-    console.log('🌱 Starting database seed from Sleeper...\n');
-
-    // ========================================
-    // 1. FETCH SLEEPER LEAGUE DATA
-    // ========================================
-    const leagueId = process.env.SLEEPER_LEAGUE_ID || 'YOUR_LEAGUE_ID_HERE';
-    
-    if (leagueId === 'YOUR_LEAGUE_ID_HERE') {
-      console.error('❌ Error: Set SLEEPER_LEAGUE_ID in .env.local');
-      process.exit(1);
-    }
-
-    console.log(`📥 Fetching Sleeper league: ${leagueId}`);
-    
-    const [league, rosters, users] = await Promise.all([
-      fetchFromSleeper(`/league/${leagueId}`),
-      fetchFromSleeper(`/league/${leagueId}/rosters`),
-      fetchFromSleeper(`/league/${leagueId}/users`)
-    ]);
-
-    console.log(`✅ Fetched league data (${league.league_size} teams)\n`);
-
-    // ========================================
-    // 2. CLEAR EXISTING DATA
-    // ========================================
-    console.log('🗑️  Clearing existing test data...');
-    
-    // Delete in reverse dependency order
-    await supabase.from('reactions').delete().gt('id', '0');
-    await supabase.from('direct_messages').delete().gt('id', '0');
-    await supabase.from('direct_message_conversations').delete().gt('id', '0');
-    await supabase.from('chat_messages').delete().gt('id', '0');
-    await supabase.from('picks').delete().gt('id', '0');
-    await supabase.from('draft_state').delete().gt('id', '0');
-    await supabase.from('teams').delete().gt('id', '0');
-    await supabase.from('draft_settings').delete().gt('id', '0');
-    await supabase.from('leagues').delete().gt('id', '0');
-
-    console.log('✅ Database cleared\n');
-
-    // ========================================
-    // 3. CREATE LEAGUE
-    // ========================================
-    console.log('📋 Creating league...');
-    
-    // Parse scoring format from Sleeper settings
-    const scoringFormat = league.settings?.scoring_format || 'ppr';
-
-    const { data: leagueData, error: leagueError } = await supabase
-      .from('leagues')
-      .insert({
-        name: league.name,
-        sleeper_league_id: league.league_id,
-        season: league.season,
-        league_size: league.league_size,
-        scoring_format: scoringFormat,
-        draft_format: 'snake',
-        rosters_per_team: league.settings?.roster_positions?.length || 15,
-        positions: buildPositionsJson(league.settings?.roster_positions),
-        league_settings: league.settings,
-        draft_status: 'setup',
-        commissioner_id: null  // Will be set during app setup
-      })
-      .select()
-      .single();
-
-    if (leagueError) throw leagueError;
-    const draftHouseLeagueId = leagueData.id;
-
-    console.log(`✅ League created: ${leagueData.id}\n`);
-
-    // ========================================
-    // 4. CREATE DRAFT SETTINGS
-    // ========================================
-    console.log('⚙️  Creating draft settings...');
-
-    const { error: settingsError } = await supabase
-      .from('draft_settings')
-      .insert({
-        league_id: draftHouseLeagueId,
-        seconds_per_pick: league.settings?.seconds_per_pick || 60,
-        allow_pick_trading: false,
-        auto_draft_enabled: false,
-        auto_draft_type: 'sleeper_rankings'
-      });
-
-    if (settingsError) throw settingsError;
-    console.log('✅ Draft settings created\n');
-
-    // ========================================
-    // 5. CREATE TEAMS
-    // ========================================
-    console.log('🏈 Creating teams...');
-
-    const teamsToInsert = rosters.map((roster) => {
-      const user = users.find(u => u.user_id === roster.owner_id);
-      
-      return {
-        league_id: draftHouseLeagueId,
-        sleeper_user_id: roster.owner_id,
-        sleeper_team_name: roster.metadata?.team_name || `Team ${roster.roster_id}`,
-        draft_house_team_name: roster.metadata?.team_name || `Team ${roster.roster_id}`,
-        team_image_url: roster.metadata?.avatar || null,
-        draft_position: roster.roster_id,
-        is_auto_draft: false,
-        family_league_wins: 0,
-        team_anecdote: null
-      };
-    });
-
-    const { data: teamsData, error: teamsError } = await supabase
-      .from('teams')
-      .insert(teamsToInsert)
-      .select();
-
-    if (teamsError) throw teamsError;
-    console.log(`✅ Created ${teamsData.length} teams\n`);
-
-    // ========================================
-    // 6. CREATE DRAFT STATE
-    // ========================================
-    console.log('🕒 Creating draft state...');
-
-    const firstTeamId = teamsData[0].id;
-    
-    const { error: draftStateError } = await supabase
-      .from('draft_state')
-      .insert({
-        league_id: draftHouseLeagueId,
-        current_pick_number: 1,
-        current_team_id: firstTeamId,
-        current_round: 1,
-        timer_seconds: 60,
-        timer_paused: true,  // Start paused so you can review before testing
-        draft_started_at: null,
-        draft_ended_at: null
-      });
-
-    if (draftStateError) throw draftStateError;
-    console.log('✅ Draft state initialized (paused for review)\n');
-
-    // ========================================
-    // 7. SUCCESS
-    // ========================================
-    console.log('═'.repeat(50));
-    console.log('🎉 Database seeded successfully!');
-    console.log('═'.repeat(50));
-    console.log(`
-League: ${league.name}
-  - ID: ${draftHouseLeagueId}
-  - Teams: ${teamsData.length}
-  - Format: ${scoringFormat.toUpperCase()}
-  
-Ready to test! Start the draft at: http://localhost:3000
-    `);
-
-  } catch (error) {
-    console.error('❌ Seed failed:', error.message);
-    process.exit(1);
-  }
-}
-
-// Helper function to build positions JSON
-function buildPositionsJson(rosterPositions) {
-  if (!rosterPositions) {
-    return { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, DEF: 1, BN: 6 };
-  }
-
-  const positions = {};
-  for (const pos of rosterPositions) {
-    positions[pos] = (positions[pos] || 0) + 1;
-  }
-  return positions;
-}
-
-// Run the seed
-seedDatabase();
-```
+**Warnings, not failures.** Anything Sleeper sends that Draft House cannot represent — an auction
+draft, a third-round reversal, a missing pick clock — is printed as a warning and seeded with a
+usable fallback the commissioner can change on the setup page. A seed that refuses to run because
+Sleeper used an order type we lack is worse than one that says so and carries on.
 
 #### Add to `package.json`
 

@@ -8,8 +8,8 @@ Split out of [DRAFT_ENGINE.md](DRAFT_ENGINE.md) — the server-authoritative pic
 
 The timer is **not** calculated by each client. Instead:
 
-1. Server stores `draft_state.timer_seconds` (countdown)
-2. Server stores `draft_state.timer_started_at` (when timer began)
+1. Server stores `drafts.timer_seconds` (countdown)
+2. Server stores `drafts.timer_started_at` (when timer began)
 3. Server periodically decrements or recalculates
 4. Clients subscribe to real-time updates
 5. Clients calculate local UI time based on server value
@@ -40,13 +40,13 @@ CURRENT STATE: timer_seconds = 35
 
 commissioner.pauseDraft()
     ↓
-UPDATE draft_state SET timer_paused = true
+UPDATE drafts SET timer_paused = true
     ↓
 Realtime event → All clients freeze timer at 35
 
 commissioner.resumeDraft()
     ↓
-UPDATE draft_state SET timer_paused = false
+UPDATE drafts SET timer_paused = false
     ↓
 Realtime event → All clients resume countdown
 ```
@@ -58,7 +58,7 @@ Commissioner wants to change time to 45 seconds
 
 commissioner.editTimer(45)
     ↓
-UPDATE draft_state SET timer_seconds = 45, timer_restarted_at = now()
+UPDATE drafts SET timer_seconds = 45, timer_restarted_at = now()
     ↓
 Realtime event → All clients update to 45 seconds
 
@@ -72,7 +72,7 @@ Commissioner wants to reset to default (60 seconds)
 
 commissioner.resetTimer()
     ↓
-UPDATE draft_state SET timer_seconds = 60, timer_restarted_at = now()
+UPDATE drafts SET timer_seconds = 60, timer_restarted_at = now()
     ↓
 Realtime event → All clients see 60 seconds
 
@@ -83,12 +83,14 @@ Timer counts down from 60
 
 Commissioner can completely disable the timer, giving the current team unlimited time.
 
-A draft can also *start* this way: `draft_settings.timer_enabled` is a pre-draft default the commissioner sets on the league setup page (see [DATABASE.md](DATABASE.md#3-draft_settings)), and seeds `draft_state.timer_active` when the draft is initialized. From that point on, the live toggle below is what actually governs the countdown — setting the initial value doesn't limit the commissioner from flipping it mid-draft either way.
+A draft can also *start* this way. `drafts.pick_timer = 0` is Sleeper's "unlimited" and the commissioner's pre-draft choice on the league setup page (see [DATABASE.md](DATABASE.md#3-drafts)); `startDraft` seeds `drafts.timer_active` from it. From that point on, the live toggle below is what actually governs the countdown — how the draft started doesn't limit the commissioner from flipping it mid-draft either way.
+
+There used to be a separate `timer_enabled` column for the pre-draft default. It was removed because two columns describing one fact can contradict each other: `pick_timer` now carries both the length and the "off" case.
 
 ```
 Commissioner clicks "Deactivate Timer"
     ↓
-UPDATE draft_state SET timer_active = false
+UPDATE drafts SET timer_active = false
     ↓
 Realtime event → All clients hide/disable timer display
     ↓
@@ -108,7 +110,7 @@ When current team makes pick:
 ```
 Commissioner clicks "Reactivate Timer"
     ↓
-UPDATE draft_state SET timer_active = true, timer_seconds = 60
+UPDATE drafts SET timer_active = true, timer_seconds = 60
     ↓
 Realtime event → Timer resumes for next pick
     ↓
@@ -128,24 +130,24 @@ Is timer active (timer_active = true)?
     │
     └─ YES: Timer expired for current team (Pick #N)
         ↓
-        UPDATE draft_state SET 
+        UPDATE drafts SET 
           timer_expired = true,
           timer_expired_at = now(),
           expired_team_id = team_id
         ↓
-        UPDATE draft_board SET status = 'expired', expired_at = now()
-          WHERE pick_number = current_pick_number
+        UPDATE draft_picks SET status = 'expired'
+          WHERE pick_no = current_pick_no
         ↓
         AUTOMATICALLY ADVANCE to next player's timer:
-        UPDATE draft_state SET
-          next_pick_team_id = calculate_next_team(current_pick_number + 1),
+        UPDATE drafts SET
+          next_pick_team_id = calculate_next_team(current_pick_no + 1),
           timer_seconds = 60,
           timer_started_at = now()
         ↓
         Realtime event: "timer_expired"
         ↓
         All clients see:
-            ├─ Draft board picks #N now shows status = 'expired'
+            ├─ Draft board pick #N now shows status = 'expired'
             ├─ Expired player's status: "⏱️ TIME EXPIRED"
             │   └─ Can still pick at any time
             ├─ Next player's status: "🟢 YOUR TURN / YOU CAN PICK NOW"
@@ -174,11 +176,11 @@ Player A still deciding
     ↓
 Timer expires (timer_seconds = 0)
     ↓
-UPDATE draft_state SET timer_expired = true, expired_team_id = team_a
+UPDATE drafts SET timer_expired = true, expired_team_id = team_a
     ↓
 AUTOMATICALLY SWITCH to Player B's timer:
     ↓
-UPDATE draft_state SET next_pick_team_id = team_b, timer_seconds = 60
+UPDATE drafts SET next_pick_team_id = team_b, timer_seconds = 60
     ↓
 All clients see:
     ├─ Player A: "⏱️ TIME EXPIRED" (can still pick anytime)
@@ -248,7 +250,7 @@ Timeline:
 
 **Tracking Expired Picks**:
 
-`draft_state.timer_expired`, `timer_expired_at`, and `expired_team_id` track this — see [DATABASE.md](DATABASE.md#5-draft_state) for the full column list.
+`drafts.timer_expired`, `timer_expired_at`, and `expired_team_id` track this — see [DATABASE.md](DATABASE.md#3-drafts) for the full column list.
 
 **When expired team finally picks**:
 
@@ -258,13 +260,14 @@ Scenario: Player A (expired Pick #1) picks after being jumped by Player B (Pick 
     ↓
 Player A finally selects their player
     ↓
-INSERT INTO picks (league_id, team_id, player_id, pick_number = 1, ...)
+UPDATE draft_picks SET status = 'completed', sleeper_player_id = ..., picked_at = now()
+  WHERE league_id = ... AND pick_no = 1
     ↓
-UPDATE draft_state SET
+UPDATE drafts SET
   timer_expired = false,
   expired_team_id = null
     ↓
-DO NOT increment current_pick_number
+DO NOT increment current_pick_no
     (Player C is still on clock at Pick #3)
     ↓
 Realtime event: pick_made
@@ -277,14 +280,16 @@ All clients see:
 
 **Track Each Team's Assigned Picks**:
 
-To handle out-of-order picks automatically and prepare for draft pick trades, maintain a list of each team's assigned pick numbers. Schema lives in [DATABASE.md](DATABASE.md#15-team_pick_assignments) — this section just illustrates how it's queried.
+Every slot is a `draft_picks` row from the moment the draft starts, so a team's picks are just the
+rows it owns. Schema lives in [DATABASE.md](DATABASE.md#5-draft_picks) — this section illustrates how
+it's queried.
 
 ```sql
 -- Example: 10-team snake draft
 -- Team at draft position #10 currently owns:
-SELECT pick_number FROM team_pick_assignments
-WHERE league_id = 'league_123' AND current_owner_team_id = 'team_10'
-ORDER BY pick_number;
+SELECT pick_no FROM draft_picks
+WHERE league_id = 'league_123' AND team_id = 'team_10'
+ORDER BY pick_no;
 
 Results:
 10, 11, 30, 31, 50, 51, 70, 71, 90, 91, ... (etc for all rounds)
@@ -293,59 +298,56 @@ Results:
 1, 20, 21, 40, 41, 60, 61, 80, 81, 100, ... (etc)
 ```
 
+Note this reads `team_id` (who owns the pick now), not `original_team_id`. After a trade the two
+differ, and the team on the clock is whoever owns it now.
+
 **Automatic Out-of-Order Pick Slotting**:
 
-When an expired player finally picks, the system:
+When an expired player finally picks, the system finds their earliest unfilled slot and fills it in
+place:
 
 ```javascript
 const playerFinallyPicks = async (team_id, player_id) => {
-  // Query draft_board: find team's next pending/expired pick slot
-  const nextPickSlot = await supabase
-    .from('draft_board')
-    .select('id, pick_number')
+  // The team's first slot that hasn't been used yet.
+  const { data: slot } = await supabase
+    .from('draft_picks')
+    .select('id, pick_no')
     .eq('league_id', league_id)
-    .eq('assigned_team_id', team_id)
+    .eq('team_id', team_id)
     .in('status', ['pending', 'expired'])
-    .order('pick_number', { ascending: true })
+    .order('pick_no', { ascending: true })
     .limit(1)
     .single();
-  
-  // nextPickSlot.pick_number = 1 (Team A's first unpicked slot)
-  
-  // Begin transaction
-  // 1. Insert pick record
-  const { data: pick } = await supabase
-    .from('picks')
-    .insert({
-      league_id,
-      team_id,
-      sleeper_player_id: player_id,
-      pick_number: nextPickSlot.pick_number
-    });
-  
-  // 2. Update draft_board to mark as completed
+
+  // slot.pick_no = 1 (Team A's first unpicked slot)
+
+  // One write. The slot and the pick are the same row, so there is no second
+  // table to keep in step and no window where they disagree.
   await supabase
-    .from('draft_board')
-    .update({ 
+    .from('draft_picks')
+    .update({
       status: 'completed',
-      pick_id: pick.id,
-      updated_at: now()
+      sleeper_player_id: player_id,
+      player_name, player_position, player_nfl_team,
+      picked_by: user_id,
+      picked_at: new Date().toISOString(),
     })
-    .eq('id', nextPickSlot.id);
-  
-  // 3. Update rosters denormalized table
+    .eq('id', slot.id);
+
+  // Update the denormalized rosters table.
   await updateRostersTable(team_id, player_id);
-  
-  return pick;
+
+  return slot.pick_no;
 };
 ```
 
 **Why This Approach**:
-- `draft_board` is single source of truth for pick slot state (pending/expired/completed)
+- `draft_picks` is the single source of truth for pick slot state (pending/expired/completed/forfeited)
 - No manual "which pick should this be?" calculation needed
-- Picks automatically slot into correct sequential position
-- Real-time subscription to `draft_board` shows all clients current draft state
-- Linking `pick_id` on draft_board allows querying "who picked at slot #5?"
+- Picks automatically slot into the correct sequential position
+- A real-time subscription to `draft_picks` shows all clients the current board
+- "Who picked at slot #5?" is a lookup on one row, not a join — this used to require `draft_board`
+  and `picks` to agree with each other, and nothing checked that they did
 
 **Benefits**:
 - Out-of-order picks automatically slot into correct position
@@ -362,6 +364,6 @@ const playerFinallyPicks = async (team_id, player_id) => {
 - [DRAFT_ENGINE.md](DRAFT_ENGINE.md) — Pick selection and validation the clock drives
 - [COMMISSIONER.md](COMMISSIONER.md) — Pause, resume, and reset controls
 - [AUTO_DRAFT.md](AUTO_DRAFT.md) — What runs when the clock expires
-- [DATABASE.md](DATABASE.md) — `draft_state` timer fields
+- [DATABASE.md](DATABASE.md) — `drafts` timer fields
 - [REALTIME.md](REALTIME.md) — Broadcasting timer state
 - [AGENTS.md](../AGENTS.md) — Project overview

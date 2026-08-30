@@ -6,18 +6,36 @@ import { Button } from "@/components/ui/button";
 import { Wordmark } from "@/components/ui/wordmark";
 import { AvailableLeagues } from "@/components/available-leagues";
 
-function leagueHref(league: { id: string; draft_status: string }) {
-  switch (league.draft_status) {
+/**
+ * PostgREST returns an embedded one-to-one as an object on some versions and a
+ * single-element array on others, and `drafts` is joined that way below. Read
+ * it defensively rather than betting the home page's routing on which.
+ */
+function draftStatus(league: { drafts?: { status: string } | { status: string }[] | null }) {
+  const draft = Array.isArray(league.drafts) ? league.drafts[0] : league.drafts;
+  return draft?.status ?? null;
+}
+
+function leagueHref(league: LeagueRow) {
+  switch (draftStatus(league)) {
     // Stays "setup" until the commissioner explicitly confirms (see
     // confirmLeagueSetup), so an unfinished review naturally routes back here.
     case "setup":
       return `/leagues/${league.id}/setup`;
     case "drafting":
+    case "paused":
       return `/leagues/${league.id}/draft`;
     default:
       return `/leagues/${league.id}/lobby`;
   }
 }
+
+type LeagueRow = {
+  id: string;
+  name: string;
+  season: number;
+  drafts?: { status: string } | { status: string }[] | null;
+};
 
 export default async function Home() {
   const supabase = await createClient();
@@ -26,7 +44,7 @@ export default async function Home() {
   } = await supabase.auth.getUser();
 
   let displayName: string | null = null;
-  let leagues: { id: string; name: string; season: number; draft_status: string }[] = [];
+  let leagues: LeagueRow[] = [];
   let availableLeagues: Awaited<ReturnType<typeof getAvailableSleeperLeagues>> = null;
 
   if (user) {
@@ -41,7 +59,8 @@ export default async function Home() {
     // or has a claimed team in — no manual filter needed.
     const { data: leagueData } = await supabase
       .from("leagues")
-      .select("id, name, season, draft_status")
+      // The draft lifecycle moved onto `drafts` — leagues.draft_status is gone.
+      .select("id, name, season, drafts(status)")
       .is("deleted_at", null)
       .order("created_at", { ascending: false });
     leagues = leagueData ?? [];
@@ -73,7 +92,7 @@ export default async function Home() {
                 >
                   <div className="font-bold">{league.name}</div>
                   <div className="text-ink/60">
-                    {league.season} · {league.draft_status}
+                    {league.season} · {draftStatus(league) ?? "setup"}
                   </div>
                 </Link>
               ))}

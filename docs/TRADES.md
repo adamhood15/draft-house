@@ -263,7 +263,7 @@ SET players = jsonb_set(
   players,
   '{players}',
   (SELECT jsonb_agg(jsonb_build_object(...))
-   FROM picks
+   FROM draft_picks
    WHERE team_id = team_a_id AND league_id = league_id)
 )
 WHERE team_id = team_a_id AND league_id = league_id;
@@ -305,7 +305,7 @@ When a trade is executed, the draft is paused and a real-time event is broadcast
 const broadcastTradeCompletion = async (league_id, trade_offer_id) => {
   // STEP 1: Pause draft immediately (same as pick announcement)
   await supabase
-    .from('draft_state')
+    .from('drafts')
     .update({ timer_paused: true, pause_reason: 'trade_in_progress' })
     .eq('league_id', league_id);
   
@@ -350,7 +350,7 @@ const broadcastTradeCompletion = async (league_id, trade_offer_id) => {
   // STEP 3: Resume draft after trade animation completes (3-4 seconds)
   setTimeout(async () => {
     await supabase
-      .from('draft_state')
+      .from('drafts')
       .update({ timer_paused: false })
       .eq('league_id', league_id);
     

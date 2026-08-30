@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   fetchNflState,
-  fetchSleeperDrafts,
+  fetchSleeperDraft,
   fetchSleeperLeague,
   fetchSleeperLeaguesForUser,
   fetchSleeperRosters,
@@ -13,7 +13,7 @@ import {
   SleeperUnavailableError,
 } from "@/lib/sleeper/client";
 import {
-  transformDraftSettings,
+  transformDraft,
   transformLeague,
   transformTeams,
 } from "@/lib/sleeper/transform";
@@ -139,7 +139,7 @@ export async function getAvailableSleeperLeagues(
  * route handler (see ARCHITECTURE.md's Sleeper Integration section) so the
  * fetch/transform/write logic exists in exactly one place.
  *
- * leagues/draft_settings/teams have no client-facing insert policy (see
+ * leagues/drafts/teams have no client-facing insert policy (see
  * supabase/migrations/20260823000003_rls_policies.sql) — import is
  * necessarily a server-authoritative write via the admin client, gated by
  * verifying the caller's session here first.
@@ -173,14 +173,18 @@ export async function importSleeperLeague(sleeperLeagueIdRaw: string): Promise<{
     );
   }
 
-  let league, rosters, users, drafts;
+  let league, rosters, users, draft;
   try {
-    [league, rosters, users, drafts] = await Promise.all([
+    [league, rosters, users] = await Promise.all([
       fetchSleeperLeague(sleeperLeagueId),
       fetchSleeperRosters(sleeperLeagueId),
       fetchSleeperUsers(sleeperLeagueId),
-      fetchSleeperDrafts(sleeperLeagueId),
     ]);
+    // Sequential, because the draft id comes off the league. Worth the extra
+    // round trip: /league/<id>/drafts returns prior seasons too, so the old
+    // `drafts[0]` took whichever Sleeper ordered first, and only /draft/<id>
+    // carries slot_to_roster_id — the authoritative seat mapping.
+    draft = league.draft_id ? await fetchSleeperDraft(league.draft_id) : null;
   } catch (error) {
     if (error instanceof SleeperNotFoundError) {
       throw new LeagueImportError("League not found. Please check the league ID.", 404);
@@ -205,16 +209,21 @@ export async function importSleeperLeague(sleeperLeagueIdRaw: string): Promise<{
 
   const leagueId = insertedLeague.id as string;
 
-  const { error: settingsError } = await admin
-    .from("draft_settings")
-    .insert(transformDraftSettings(leagueId, user.id, drafts));
+  const { error: draftError } = await admin
+    .from("drafts")
+    .insert(transformDraft(leagueId, league, draft));
 
-  const { error: teamsError } = settingsError
+  const { error: teamsError } = draftError
     ? { error: null }
-    : await admin.from("teams").insert(transformTeams(leagueId, rosters, users));
+    : await admin.from("teams").insert(
+        transformTeams(leagueId, rosters, users, {
+          slotToRosterId: draft?.slot_to_roster_id,
+          draftOrder: draft?.draft_order,
+        })
+      );
 
-  if (settingsError || teamsError) {
-    // Cascades to draft_settings/teams via their `references leagues(id) on delete cascade` FKs.
+  if (draftError || teamsError) {
+    // Cascades to drafts/teams via their `references leagues(id) on delete cascade` FKs.
     await admin.from("leagues").delete().eq("id", leagueId);
     throw new LeagueImportError("Failed to import league. Please try again.", 500);
   }

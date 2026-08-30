@@ -66,7 +66,7 @@ snake and never moves in a linear draft.
 **Calculating Next Pick**:
 
 ```
-current_pick_number = X  (1-indexed)
+current_pick_no = X  (1-indexed)
 league_size = 12
 total_rounds = 16
 
@@ -161,13 +161,14 @@ client.submitPick({
 })
     ↓
 Server validates (fast checks only):
-  ✓ Player not already drafted (check picks table)
+  ✓ Player not already drafted (check draft_picks table)
   ✓ Roster spot available (check rosters table)
   ✓ It's this team's turn OR commissioner is forcing
     ↓
     (Player existence already validated at draft load)
     ↓
-INSERT INTO picks (league_id, team_id, player_id, ...)
+UPDATE draft_picks SET status = 'completed', sleeper_player_id = ..., picked_at = now()
+  WHERE league_id = ? AND pick_no = current_pick_no
     ↓
 UPDATE rosters SET players = array_append(players, {
   player_id: "2222",
@@ -177,10 +178,7 @@ UPDATE rosters SET players = array_append(players, {
 })
   WHERE team_id = team_1 AND league_id = league_123
     ↓
-UPDATE draft_state SET current_pick_number = current_pick_number + 1
-    ↓
-UPDATE draft_board SET status = 'completed', pick_id = ? 
-  WHERE pick_number = current_pick_number - 1
+UPDATE drafts SET current_pick_no = current_pick_no + 1
     ↓
 Realtime event: pick_made
     ↓
@@ -202,7 +200,7 @@ Timer resets to default
 ```sql
 -- Query to check if a player is already drafted in this league
 SELECT EXISTS(
-  SELECT 1 FROM picks
+  SELECT 1 FROM draft_picks
   WHERE league_id = ? 
   AND sleeper_player_id = ?
   AND deleted_at IS NULL  -- Ignore undone picks
@@ -236,7 +234,7 @@ pick_made realtime event includes:
 ├── drafted_by_team: "The Hoodlums"
 └── timestamp: "2025-09-04T14:32:15Z"
 
-All clients subscribe to picks table changes:
+All clients subscribe to draft_picks table changes:
     ↓
 Immediately update UI to show player as drafted
     ↓
@@ -252,7 +250,7 @@ Show drafted label with team name
 const validatePickAvailability = async (league_id, sleeper_player_id) => {
   // Check if player is already drafted
   const existingPick = await supabase
-    .from('picks')
+    .from('draft_picks')
     .select('id, team_id, teams(draft_house_team_name)')
     .eq('league_id', league_id)
     .eq('sleeper_player_id', sleeper_player_id)
@@ -281,7 +279,7 @@ const PlayerCard = ({ player, league_id }) => {
   useEffect(() => {
     // Subscribe to this player's draft status
     const subscription = supabase
-      .from('picks')
+      .from('draft_picks')
       .on('*', payload => {
         if (payload.new.sleeper_player_id === player.sleeper_player_id) {
           setDraftStatus({
@@ -407,11 +405,9 @@ Two picks inserted?
 **Solution**: Check if team already has pick for this round
 
 ```sql
-INSERT INTO picks (...)
-  WHERE NOT EXISTS (
-    SELECT 1 FROM picks p2
-    WHERE p2.team_id = ? AND p2.round = ?
-  )
+UPDATE draft_picks SET status = 'completed', sleeper_player_id = ?
+  WHERE league_id = ? AND pick_no = ?
+    AND sleeper_player_id IS NULL  -- the guard: an already-filled slot matches zero rows
 ```
 
 ---
@@ -423,9 +419,7 @@ INSERT INTO picks (...)
 ```
 All teams have drafted all roster spots
     ↓
-UPDATE draft_state SET draft_ended_at = now()
-    ↓
-UPDATE leagues SET draft_status = 'complete' WHERE id = league_id
+UPDATE drafts SET ended_at = now(), status = 'complete' WHERE league_id = ?
     ↓
 Realtime event: draft_complete
     ↓
@@ -437,7 +431,7 @@ Clients transition to draft results view
 ```
 SELECT t.draft_house_team_name, COUNT(p.id) as picks_made
 FROM teams t
-LEFT JOIN picks p ON t.id = p.team_id
+LEFT JOIN draft_picks p ON t.id = p.team_id
 WHERE t.league_id = ?
 GROUP BY t.id
 ORDER BY t.draft_position;
@@ -478,8 +472,8 @@ Result: Final roster for each team.
 
 ### Database Queries
 
-- `picks` table indexed by `(league_id, team_id, created_at)`
-- `draft_state` single row, frequently updated
+- `draft_picks` table indexed by `(league_id, team_id, created_at)`
+- `drafts` single row, frequently updated
 - Consider materialized view for "picks per team"
 
 ### Calculations
@@ -528,7 +522,7 @@ Result: Final roster for each team.
 - [COMMISSIONER.md](COMMISSIONER.md) — Commissioner draft administration
 - [TRADES.md](TRADES.md) — Trade offers, validation, and lifecycle
 - [NOTIFICATIONS.md](NOTIFICATIONS.md) — Pick announcements and preferences
-- [DATABASE.md](DATABASE.md) — Schema for picks and draft_state
+- [DATABASE.md](DATABASE.md) — Schema for drafts and draft_picks
 - [SLEEPER.md](SLEEPER.md) — Player data and rankings
 - [REALTIME.md](REALTIME.md) — Real-time updates to draft state
 - [AGENTS.md](../AGENTS.md) — Project overview

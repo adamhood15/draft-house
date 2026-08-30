@@ -21,7 +21,7 @@ import type {
  * - **Required** when Draft House writes it to a `not null` column and has no
  *   documented default — `season`, `name`, `roster_id`. Absent means fail here.
  * - **Optional** when a default or fallback is already documented — the
- *   settings blocks, `display_name`, `seconds_per_pick`. Absent means take the
+ *   settings blocks, `display_name`, `pick_timer`. Absent means take the
  *   default, exactly as before.
  *
  * Unknown extra fields pass through untouched. Sleeper adds fields freely, and
@@ -74,6 +74,23 @@ function nullableString(source: Record<string, unknown>, field: string) {
 }
 
 /**
+ * A URL Sleeper supplies whole, rather than an id we build a URL from. It ends
+ * up in an `<img src>`, so the scheme is checked here at the boundary: a
+ * `javascript:` or `data:` value from an attacker-controlled profile field must
+ * never reach the database, let alone the page. Anything that isn't a parseable
+ * https URL is dropped, and the caller falls back as if it were absent.
+ */
+function httpsUrlOrNull(source: Record<string, unknown>, field: string) {
+  const value = source[field];
+  if (typeof value !== "string" || value === "") return null;
+  try {
+    return new URL(value).protocol === "https:" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * docs/SLEEPER.md#1-get-league shows `"season": 2025` unquoted while types.ts
  * declares a string, and the live API sends a string. Accept either rather than
  * bet the import on which one is right.
@@ -110,6 +127,37 @@ function optionalPositiveInteger(source: Record<string, unknown>, field: string)
   return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : undefined;
 }
 
+/**
+ * Same, but 0 is a value rather than a missing one. `pick_timer: 0` is how
+ * Sleeper says "unlimited time"; treating it as absent would silently restore
+ * the 60-second default on exactly the leagues that turned the clock off.
+ */
+function optionalNonNegativeInteger(source: Record<string, unknown>, field: string) {
+  const value = source[field];
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : undefined;
+}
+
+/** Epoch milliseconds. Absent, null, or non-finite all mean "not scheduled". */
+function nullableEpochMs(source: Record<string, unknown>, field: string) {
+  const value = source[field];
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
+}
+
+/**
+ * An object kept verbatim for a jsonb column. Nothing inside is inspected —
+ * that is the point: it is the provenance copy, and narrowing it here would
+ * discard exactly the unanticipated fields it exists to preserve.
+ */
+function optionalRecord(
+  source: Record<string, unknown>,
+  field: string,
+  context: string
+): Record<string, unknown> | null {
+  const value = source[field];
+  if (value === undefined || value === null) return null;
+  return requireObject(value, context, field);
+}
+
 function optionalNumericRecord(
   source: Record<string, unknown>,
   field: string,
@@ -142,6 +190,9 @@ export function validateSleeperLeague(body: unknown, context: string): SleeperLe
 
   return {
     league_id: requireString(league, "league_id", context),
+    // The league's current draft. Preferred over GET /league/<id>/drafts,
+    // whose array spans prior seasons — see fetchSleeperDraft.
+    draft_id: nullableString(league, "draft_id"),
     name: requireString(league, "name", context),
     season: requireSeason(league, context),
     // Validation-only per docs/SLEEPER.md#league-settings, never written.
@@ -166,7 +217,9 @@ export function validateSleeperRosters(body: unknown, context: string): SleeperR
         : requireObject(roster.metadata, context, "roster metadata");
 
     return {
-      // Becomes `teams.draft_position`, which is `integer not null`.
+      // Identifies the team, and is the fallback seat ordering when the
+      // draft order is unset. The seat itself comes from the draft draft_order
+      // map (src/lib/sleeper/draft-order.ts), not from here.
       roster_id: requireInteger(roster, "roster_id", context),
       // Null is normal here — docs/SLEEPER.md#emptyunowned-teams.
       owner_id: nullableString(roster, "owner_id"),
@@ -179,35 +232,83 @@ export function validateSleeperUsers(body: unknown, context: string): SleeperUse
   return requireArray(body, context, "the user list").map((entry) => {
     const user = requireObject(entry, context, "a user");
 
+    // Sleeper keeps the manager's chosen team name and uploaded team avatar
+    // here, NOT on the roster — GET /league/<id>/rosters carries notification
+    // preferences and nothing else. See transformTeams.
+    const metadata =
+      user.metadata === undefined || user.metadata === null
+        ? null
+        : requireObject(user.metadata, context, "user metadata");
+
     return {
       // Rosters are matched to owners on this, so it has to be real.
       user_id: requireString(user, "user_id", context),
       // Only feeds the team-name fallback chain, which ends at "Team {n}".
       display_name: optionalString(user, "display_name"),
       avatar: nullableString(user, "avatar"),
+      metadata: metadata
+        ? {
+            team_name: nullableString(metadata, "team_name") ?? undefined,
+            // Unlike the `avatar` id above, this is a fully-qualified URL that
+            // Sleeper hands back verbatim. It is rendered in an <img src>, so
+            // anything but https is dropped rather than stored.
+            avatar: httpsUrlOrNull(metadata, "avatar") ?? undefined,
+          }
+        : null,
     };
   });
 }
 
-export function validateSleeperDrafts(body: unknown, context: string): SleeperDraft[] {
-  return requireArray(body, context, "the draft list").map((entry) => {
-    const draft = requireObject(entry, context, "a draft");
-    const settings =
-      draft.settings === undefined || draft.settings === null
-        ? null
-        : requireObject(draft.settings, context, "draft settings");
+/**
+ * One draft object, from either GET /draft/<draft_id> or an entry in
+ * GET /league/<league_id>/drafts. The two carry the same shape; only the
+ * single-draft endpoint includes slot_to_roster_id.
+ */
+function validateDraftObject(entry: unknown, context: string): SleeperDraft {
+  const draft = requireObject(entry, context, "a draft");
+  const settings = optionalRecord(draft, "settings", context);
 
-    return {
-      draft_id: requireString(draft, "draft_id", context),
-      // Unread today — import seeds draft_format with DEFAULT_DRAFT_ORDER_TYPE
-      // (src/lib/draft/order.ts) and the commissioner sets the real order in
-      // draft settings, so Sleeper's own type is never consulted.
-      type: optionalString(draft, "type"),
-      settings: settings
-        ? { seconds_per_pick: optionalPositiveInteger(settings, "seconds_per_pick") }
-        : null,
-    };
-  });
+  return {
+    draft_id: requireString(draft, "draft_id", context),
+    type: optionalString(draft, "type"),
+    status: optionalString(draft, "status"),
+    sport: optionalString(draft, "sport"),
+    // Lenient: drafts.season is `integer not null`, but the league carries the
+    // same season and transformDraft falls back to it. Failing the whole import
+    // over a field we already have from another endpoint would be gratuitous.
+    season: optionalString(draft, "season"),
+    season_type: optionalString(draft, "season_type"),
+    start_time: nullableEpochMs(draft, "start_time"),
+    settings: settings
+      ? {
+          rounds: optionalPositiveInteger(settings, "rounds"),
+          // The real field name. Sleeper has no `seconds_per_pick`, and reading
+          // one meant every imported league quietly took the 60s default
+          // regardless of what its commissioner had set.
+          pick_timer: optionalNonNegativeInteger(settings, "pick_timer"),
+        }
+      : null,
+    // Kept whole for the jsonb columns — see the note on optionalRecord.
+    raw_settings: settings,
+    metadata: optionalRecord(draft, "metadata", context),
+    // user_id -> slot, one source of teams.draft_position. Null before the
+    // commissioner sets the order in Sleeper, which is an ordinary pre-draft
+    // state (see assignDraftPositions).
+    draft_order: optionalNumericRecord(draft, "draft_order", context),
+    // slot -> Sleeper roster_id. The authoritative seat mapping when present,
+    // and it is only present on GET /draft/<draft_id>.
+    slot_to_roster_id: optionalNumericRecord(draft, "slot_to_roster_id", context),
+  };
+}
+
+export function validateSleeperDraft(body: unknown, context: string): SleeperDraft {
+  return validateDraftObject(body, context);
+}
+
+export function validateSleeperDrafts(body: unknown, context: string): SleeperDraft[] {
+  return requireArray(body, context, "the draft list").map((entry) =>
+    validateDraftObject(entry, context)
+  );
 }
 
 export function validateSleeperUserLookup(body: unknown, context: string): SleeperUserLookup {

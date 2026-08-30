@@ -38,7 +38,7 @@ When a player is selected, a coordinated sequence of events occurs across all cl
 10. After animation completes (3-4 seconds total):
     Close popup
     ↓
-11. Update draft_state: increment pick number
+11. Update drafts: increment pick number
     ↓
 12. Resume timer for next team
 ```
@@ -53,18 +53,18 @@ const submitPickWithAnimation = async (league_id, team_id, player_id) => {
   
   // STEP 1: Pause draft immediately
   await supabase
-    .from('draft_state')
+    .from('drafts')
     .update({ timer_paused: true, pause_reason: 'pick_in_progress' })
     .eq('league_id', league_id);
   
   // Insert the pick
   const pick = await supabase
-    .from('picks')
+    .from('draft_picks')
     .insert({
       league_id,
       team_id,
       sleeper_player_id: player_id,
-      pick_number: current_pick_number,
+      pick_number: current_pick_no,
       created_at: now()
     })
     .select();
@@ -80,7 +80,7 @@ const submitPickWithAnimation = async (league_id, team_id, player_id) => {
     type: 'broadcast',
     event: 'pick_in_progress',
     payload: {
-      pick_number: current_pick_number,
+      pick_number: current_pick_no,
       team_id: team_id,
       team_name: team_name,
       league_name: league_name,
@@ -90,7 +90,7 @@ const submitPickWithAnimation = async (league_id, team_id, player_id) => {
       player_position: playerData.position,
       // Built from a template, not fetched or stored — see SLEEPER.md#player-photos
       player_image_url: getPlayerImageUrl(player_id, playerData.position),
-      player_nfl_team: playerData.nfl_team
+      player_nfl_team: playerData.team
     }
   });
   
@@ -98,9 +98,9 @@ const submitPickWithAnimation = async (league_id, team_id, player_id) => {
   setTimeout(async () => {
     // STEP 11: Increment pick number
     await supabase
-      .from('draft_state')
+      .from('drafts')
       .update({
-        current_pick_number: current_pick_number + 1,
+        current_pick_no: current_pick_no + 1,
         timer_paused: false  // Resume timer
       })
       .eq('league_id', league_id);

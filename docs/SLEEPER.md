@@ -99,27 +99,47 @@ GET /league/{league_id}/users
 #### 4. Get Draft
 
 ```
-GET /league/{league_id}/drafts
+GET /draft/{draft_id}
 ```
 
-**Response**:
+Fetch the draft **by id**, taken from `league.draft_id`. `GET /league/{league_id}/drafts` also exists
+and returns the same shape, but it is an array spanning prior seasons with no documented ordering, so
+taking `[0]` can silently source the clock, rounds, order type *and* every seat from a draft that
+isn't happening. It also omits `slot_to_roster_id`.
+
+**Response** (verified against league `1357756813482684416`):
 ```json
-[
-  {
-    "draft_id": "draft_123",
-    "league_id": "league_456",
-    "season": 2025,
-    "draft_order": [1, 2, 3, ..., 12],
-    "type": "snake",
-    "settings": {
-      "rounds": 16,
-      "slots_taken": 12,
-      "seconds_per_pick": 60
-    },
+{
+  "draft_id": "draft_123",
+  "league_id": "league_456",
+  "type": "snake",
+  "status": "pre_draft",
+  "sport": "nfl",
+  "season": "2026",
+  "season_type": "regular",
+  "start_time": 1788110110440,
+  "settings": {
+    "teams": 12,
+    "rounds": 16,
+    "pick_timer": 30,
+    "slots_qb": 1,
+    "slots_rb": 2,
     "...": "..."
-  }
-]
+  },
+  "metadata": { "scoring_type": "ppr", "name": "Draft", "description": "" },
+  "draft_order": { "<user_id>": 1, "<user_id>": 2, "...": 12 },
+  "slot_to_roster_id": { "1": 7, "2": 3, "...": 12 },
+  "last_picked": 1515700871182
+}
 ```
+
+> **The pick clock is `settings.pick_timer`.** There is no `seconds_per_pick` field on any Sleeper
+> payload. This document used to show one in the example above, and both the import and the seed
+> script dutifully read it — so every imported league drafted on the 60-second fallback no matter
+> what its commissioner had configured. Nothing failed, because 60 is a perfectly plausible answer.
+>
+> `pick_timer: 0` means **unlimited**, not missing. Treating it as absent restores the default on
+> exactly the leagues that deliberately turned the clock off.
 
 ---
 
@@ -129,6 +149,9 @@ GET /league/{league_id}/drafts
 GET /players/nfl
 ```
 
+A map of `player_id` → player object. **~14.6 MB parsed** (about 5 MB gzipped over the wire), so it
+is fetched at most once per day in the background and cached in [`players`](DATABASE.md#16-players).
+
 **Response**:
 ```json
 {
@@ -136,15 +159,31 @@ GET /players/nfl
     "player_id": "2222",
     "first_name": "Bijan",
     "last_name": "Robinson",
+    "full_name": "Bijan Robinson",
     "position": "RB",
-    "nfl_team": "ATL",
-    "bye_week": 10,
+    "fantasy_positions": ["RB"],
+    "team": "ATL",
     "status": "Active",
+    "active": true,
+    "search_rank": 12,
     "...": "..."
   },
   ...
 }
 ```
+
+Verified against the live endpoint on 2026-08-30: **12,225 players, 53 keys, every key present on
+every player** — Sleeper sends nulls rather than omitting fields.
+
+> **Two fields this document used to claim, which do not exist.**
+>
+> - The NFL team is **`team`**, not `nfl_team`.
+> - **There is no `bye_week`.** Confirmed absent across all 12,225 players. Bye weeks are derived
+>   from the NFL schedule instead and stored in [`team_bye_weeks`](DATABASE.md#17-team_bye_weeks) —
+>   see `src/lib/espn/bye-weeks.ts`.
+>
+> `search_rank` is Sleeper's own search ordering (`9999999` = unranked). It is **not** a fantasy
+> ranking; those come from [`player_values`](DATABASE.md#18-player_values).
 
 ---
 
@@ -187,8 +226,7 @@ GET /league/{league_id}
     ↓ (retrieve)
 GET /league/{league_id}/rosters
 GET /league/{league_id}/users
-GET /league/{league_id}/drafts
-GET /players/nfl (for player name/position/team lookups)
+GET /draft/{league.draft_id}          ← by id, not /league/{id}/drafts
 ```
 
 ### Step 3: Transform & Store
@@ -216,11 +254,11 @@ Roster Construction: QB 1, RB 2, WR 2, TE 1, FLEX 1, DEF 1, BENCH 6
 Commissioner reviews and can edit draft configuration:
 
 ```
-Draft Format: Snake
-Seconds per Pick: 60
-Allow Pick Trading: (from Sleeper) ← can edit
-Draft Order: (from Sleeper draft) ← can edit
-Auto-Draft: Disabled / Enabled ← can toggle
+Draft Order: Snake                      ← from draft.type
+Seconds per Pick: 30                   ← from draft.settings.pick_timer (0 = unlimited)
+Draft Start Time: (from draft.start_time)
+Allow Pick Trading: enabled            ← Draft House only, no Sleeper equivalent
+Auto-Draft: Disabled / Enabled         ← can toggle
 
 [ Edit Settings ] [ Confirm ]
 ```
@@ -275,12 +313,12 @@ Draft House:
 
 | Sleeper Field | Draft House Field | Notes |
 |---|---|---|
-| `roster_id` | — | Used as internal reference |
 | `owner_id` | `sleeper_user_id` | Store Sleeper user ID |
 | `owner_id` → lookup username | — | Potential fallback for missing owner |
-| Roster position | `draft_position` | 1-12 for 12-team league |
-| Display name | `sleeper_team_name` | Preserved; not modified |
-| Team avatar | `team_image_url` | Original from Sleeper |
+| — | `draft_position` | **Never** the roster position. The seat comes from the draft's `slot_to_roster_id`, or `draft_order` as a fallback — see [Draft Settings](#draft-settings). Reading it off `roster_id` produced a complete, plausible, wrong board every time |
+| `roster_id` | `sleeper_roster_id` | What `drafts.slot_to_roster_id` points at; without it that map cannot be resolved back to a team |
+| `users[].metadata.team_name` | `sleeper_team_name`, `draft_house_team_name` | On the league **USER**, not the roster — `/rosters` carries notification preferences and no name at all. Falls back through `roster.metadata.team_name` → `display_name` → `Team {n}`. The two columns start equal; the `draft_house_` one is the editable copy |
+| `users[].metadata.avatar` | `team_image_url` | A full URL when the manager uploaded a team avatar; otherwise the account `avatar` id expanded against the CDN. Validated as https at the boundary, since it lands in an `<img src>`. `custom_image_url` is the in-app override and is never written by import |
 
 **Example team transformation**:
 
@@ -309,10 +347,10 @@ Sleeper player IDs are used to reference NFL players:
 | Sleeper Field | Draft House Field | Source |
 |---|---|---|
 | `player_id` | `sleeper_player_id` | From rosters or pick history |
-| `first_name` + `last_name` | `player_name` | From `/players/nfl` |
-| `position` | `player_position` | From `/players/nfl` |
-| `nfl_team` | `player_nfl_team` | From `/players/nfl` |
-| `bye_week` | `player_bye` | From `/players/nfl` |
+| `full_name` (or `first_name` + `last_name`) | `player_name` | From `players` |
+| `position` | `player_position` | From `players` |
+| `team` | `player_nfl_team` | From `players`. The field is `team` — there is no `nfl_team` on Sleeper |
+| — | — | **No bye week.** Sleeper does not send one; it is derived from the NFL schedule into [`team_bye_weeks`](DATABASE.md#17-team_bye_weeks) and joined on `team`. `draft_picks` has no `player_bye` column as a result |
 
 ---
 
@@ -330,18 +368,27 @@ https://sleepercdn.com/content/nfl/players/thumb/{sleeperPlayerId}.jpg
 https://sleepercdn.com/images/team_logos/nfl/{team}.png
 ```
 
-No authentication or rate limiting applies — these are plain static image requests. See [DATABASE.md](DATABASE.md#6-picks) and [NOTIFICATIONS.md](NOTIFICATIONS.md#pick-announcement--animation-sequence) for where these are used.
+No authentication or rate limiting applies — these are plain static image requests. See [DATABASE.md](DATABASE.md#5-draft_picks) and [NOTIFICATIONS.md](NOTIFICATIONS.md#pick-announcement--animation-sequence) for where these are used.
 
 ---
 
 ### Draft Settings
 
+Everything below lands on [`drafts`](DATABASE.md#3-drafts), the one row per league that holds both the
+draft's configuration and its live clock.
+
 | Sleeper Field | Draft House Field | Notes |
 |---|---|---|
-| `draft_order` | — | Used to sort teams |
-| `settings.seconds_per_pick` | `seconds_per_pick` | Editable |
-| `type` | `draft_format` | Unread. Import seeds the default order; the commissioner picks it in draft settings |
-| `settings.rounds` | — | Calculated from roster size |
+| `slot_to_roster_id` | `drafts.slot_to_roster_id`, `teams.draft_position` | Map of slot → **Sleeper `roster_id`**. The authoritative seating, and only `GET /draft/{id}` returns it. Resolved against `teams.sleeper_roster_id` |
+| `draft_order` | `drafts.draft_order`, `teams.draft_position` | Map of `user_id` → slot, **not** `roster_id`. The fallback when `slot_to_roster_id` is absent. Both are applied by `assignDraftPositions` (`src/lib/sleeper/draft-order.ts`); null until the Sleeper commissioner sets the order, which falls back to `roster_id` order |
+| `settings.pick_timer` | `drafts.pick_timer` | Seconds per pick; `0` = unlimited. Editable |
+| `settings.rounds` | `drafts.rounds` | The board's length. **Not** `roster_positions.length` — a rookie draft has fewer rounds than roster slots, and the draft is authoritative about its own board. Falls back to roster slots only when absent |
+| `type` | `drafts.type` | `snake` and `linear` map through; `auction` falls back to `snake` with a warning, since Draft House has no board shape for it |
+| `status` | `drafts.status` | Sleeper's `pre_draft` maps to `setup`, the first of Draft House's two pre-draft stages |
+| `start_time` | `drafts.start_time` | Epoch **milliseconds** on Sleeper, `timestamptz` here |
+| `settings` (whole) | `drafts.settings` | Kept verbatim as provenance. Never read back — the promoted columns above are authoritative |
+| `metadata` (whole) | `drafts.metadata` | Same. Note `metadata.scoring_type` is a compound league-shape label (`idp_1qb`, `dynasty_ppr`), **not** a scoring format — see [Scoring Format](#scoring-format) |
+| `settings.teams` | — | Deliberately ignored. Sleeper derives it from the league, so it agrees with `/rosters` by construction; `leagues.league_size` comes from the roster count, which is what `startDraft` validates seats against |
 
 ---
 

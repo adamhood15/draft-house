@@ -98,14 +98,14 @@ describe("updateLeagueSettings", () => {
 });
 
 describe("updateDraftSettings", () => {
-  it("reports success when both writes matched a row", async () => {
-    from = queuedFrom([ONE_ROW_MATCHED, ONE_ROW_MATCHED]);
+  it("reports success when the write actually matched a row", async () => {
+    from = queuedFrom([ONE_ROW_MATCHED]);
     await expect(updateDraftSettings("league-1", { error: null }, draftForm())).resolves.toEqual({
       error: null,
     });
   });
 
-  it("does not report success when the draft_settings write matched no rows", async () => {
+  it("does not report success when the write matched no rows", async () => {
     from = queuedFrom([NO_ROWS_MATCHED]);
     const state = await updateDraftSettings("league-1", { error: null }, draftForm());
     expect(state.error).toBe(
@@ -113,30 +113,78 @@ describe("updateDraftSettings", () => {
     );
   });
 
-  it("reports the half-succeeded save honestly when the league write fails", async () => {
-    // Two tables, written sequentially, with no transaction spanning them.
-    // Saying "failed" would be as wrong as saying "saved" — the pick timer
-    // really did change, and a commissioner who retries needs to know which
-    // half to look at. The league half now carries the draft order as well as
-    // the start time, so the message has to name both.
-    from = queuedFrom([ONE_ROW_MATCHED, NO_ROWS_MATCHED]);
-    const state = await updateDraftSettings("league-1", { error: null }, draftForm());
-    expect(state.error).toBe(
-      "Draft settings saved, but the draft order and start time didn't — you may not have permission to edit this league."
-    );
+  it("saves every draft setting in a single write", async () => {
+    // This used to be two sequential updates — draft_settings then leagues —
+    // with no transaction spanning them, so the pick timer could save while
+    // the draft order didn't, and the action had to report a half-applied save
+    // in its own error message. Consolidating onto `drafts` made that state
+    // unreachable, and one write is the property that keeps it unreachable.
+    const updates: unknown[] = [];
+    from = capturingFrom([ONE_ROW_MATCHED], updates);
+
+    await updateDraftSettings("league-1", { error: null }, draftForm());
+
+    expect(updates).toHaveLength(1);
+    expect(updates[0]).toMatchObject({
+      pick_timer: 90,
+      type: "snake",
+      allow_pick_trading: false,
+      start_time: new Date("2026-09-01T19:00").toISOString(),
+    });
+  });
+});
+
+describe("updateDraftSettings timer", () => {
+  /**
+   * There is no timer_enabled column any more. "No timer" is pick_timer = 0 —
+   * Sleeper's own convention — so the checkbox and the seconds input collapse
+   * into one value on the way to the database. Two columns could contradict
+   * each other; one cannot.
+   */
+  it("writes an unchecked timer as pick_timer 0, not as the seconds still in the box", async () => {
+    const updates: unknown[] = [];
+    from = capturingFrom([ONE_ROW_MATCHED], updates);
+
+    const form = draftForm();
+    form.delete("timer_enabled");
+    await updateDraftSettings("league-1", { error: null }, form);
+
+    expect(updates[0]).toMatchObject({ pick_timer: 0 });
+  });
+
+  it("accepts an unchecked timer even when the seconds field is below the floor", async () => {
+    // The 10s floor is about what a commissioner may type into a live clock.
+    // With the clock off the value is discarded, so rejecting the save would
+    // block a legitimate setting on the strength of an ignored input.
+    const updates: unknown[] = [];
+    from = capturingFrom([ONE_ROW_MATCHED], updates);
+
+    const form = draftForm();
+    form.delete("timer_enabled");
+    form.set("seconds_per_pick", "3");
+    const state = await updateDraftSettings("league-1", { error: null }, form);
+
+    expect(state.error).toBeNull();
+    expect(updates[0]).toMatchObject({ pick_timer: 0 });
+  });
+
+  it("still enforces the floor when the timer is on", async () => {
+    const updates: unknown[] = [];
+    from = capturingFrom([ONE_ROW_MATCHED], updates);
+
+    const form = draftForm();
+    form.set("seconds_per_pick", "3");
+    const state = await updateDraftSettings("league-1", { error: null }, form);
+
+    expect(state.error).toBe("Seconds per pick must be at least 10.");
+    expect(updates).toEqual([]);
   });
 });
 
 describe("updateDraftSettings draft order", () => {
-  /**
-   * The order type lives on leagues.draft_format, not on draft_settings —
-   * the column already exists and SLEEPER.md maps Sleeper's `type` onto it at
-   * import, so a second copy on draft_settings would be two homes for one
-   * fact. That puts it in the *second* of this action's two writes.
-   */
-  it("writes the chosen order onto the league, alongside the start time", async () => {
+  it("writes the chosen order onto the draft", async () => {
     const updates: unknown[] = [];
-    from = capturingFrom([ONE_ROW_MATCHED, ONE_ROW_MATCHED], updates);
+    from = capturingFrom([ONE_ROW_MATCHED], updates);
 
     const form = draftForm();
     form.set("draft_format", "linear");
@@ -144,40 +192,36 @@ describe("updateDraftSettings draft order", () => {
       error: null,
     });
 
-    expect(updates).toHaveLength(2);
-    expect(updates[1]).toMatchObject({ draft_format: "linear" });
-    // Not smuggled into the draft_settings write, where no such column exists.
-    expect(updates[0]).not.toHaveProperty("draft_format");
+    expect(updates).toHaveLength(1);
+    expect(updates[0]).toMatchObject({ type: "linear" });
   });
 
   it("keeps snake when snake is what was chosen", async () => {
     const updates: unknown[] = [];
-    from = capturingFrom([ONE_ROW_MATCHED, ONE_ROW_MATCHED], updates);
+    from = capturingFrom([ONE_ROW_MATCHED], updates);
     await updateDraftSettings("league-1", { error: null }, draftForm());
-    expect(updates[1]).toMatchObject({ draft_format: "snake" });
+    expect(updates[0]).toMatchObject({ type: "snake" });
   });
 
   it.each(["auction", "SNAKE", "", "linearr"])(
     "refuses %o rather than writing it to the league",
     async (posted) => {
       const updates: unknown[] = [];
-      from = capturingFrom([ONE_ROW_MATCHED, ONE_ROW_MATCHED], updates);
+      from = capturingFrom([ONE_ROW_MATCHED], updates);
 
       const form = draftForm();
       form.set("draft_format", posted);
       const state = await updateDraftSettings("league-1", { error: null }, form);
 
       expect(state.error).toBe("Invalid draft order.");
-      // Rejected before either table is touched — a half-applied save here
-      // would leave the timer changed and the order not, with no way for the
-      // commissioner to tell.
+      // Rejected before the table is touched at all.
       expect(updates).toEqual([]);
     }
   );
 
   it("refuses a request that omits the order entirely", async () => {
     const updates: unknown[] = [];
-    from = capturingFrom([ONE_ROW_MATCHED, ONE_ROW_MATCHED], updates);
+    from = capturingFrom([ONE_ROW_MATCHED], updates);
 
     const form = draftForm();
     form.delete("draft_format");

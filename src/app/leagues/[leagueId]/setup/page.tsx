@@ -73,7 +73,7 @@ export default async function LeagueSetupPage({
   const { data: league } = await supabase
     .from("leagues")
     .select(
-      "id, commissioner_id, name, season, league_size, scoring_format, positions, draft_status, draft_format, draft_start_time, updated_at"
+      "id, commissioner_id, name, season, league_size, scoring_format, positions, updated_at"
     )
     .eq("id", leagueId)
     .is("deleted_at", null)
@@ -93,18 +93,27 @@ export default async function LeagueSetupPage({
     );
   }
 
-  const { data: draftSettings } = await supabase
-    .from("draft_settings")
-    .select("seconds_per_pick, timer_enabled, allow_pick_trading, updated_at")
+  const { data: draft } = await supabase
+    .from("drafts")
+    .select("id, status, type, pick_timer, allow_pick_trading, start_time, updated_at")
     .eq("league_id", leagueId)
     .single();
 
-  if (!draftSettings) {
+  if (!draft) {
     notFound();
   }
 
-  const draftStartTimeLocal = league.draft_start_time
-    ? new Date(league.draft_start_time).toISOString().slice(0, 16)
+  // The form still thinks in two fields. pick_timer = 0 is Sleeper's
+  // "unlimited", so it unchecks the box and leaves the seconds input holding a
+  // sane default to switch back on with, rather than a literal 0.
+  const draftSettings = {
+    seconds_per_pick: draft.pick_timer > 0 ? draft.pick_timer : 60,
+    timer_enabled: draft.pick_timer > 0,
+    allow_pick_trading: draft.allow_pick_trading,
+  };
+
+  const draftStartTimeLocal = draft.start_time
+    ? new Date(draft.start_time).toISOString().slice(0, 16)
     : "";
 
   return (
@@ -137,7 +146,7 @@ export default async function LeagueSetupPage({
                 </p>
               )}
             </div>
-            {/* Deliberately unkeyed. draft_settings has a set_updated_at
+            {/* Deliberately unkeyed. drafts has a set_updated_at
                 trigger, so keying this on updated_at remounted the form on
                 every successful save — which reset useActionState and threw
                 away the "Saved" confirmation before it could render. The
@@ -146,7 +155,7 @@ export default async function LeagueSetupPage({
             <DraftSettingsForm
               leagueId={leagueId}
               draftSettings={draftSettings}
-              draftFormat={league.draft_format}
+              draftFormat={draft.type}
               draftStartTimeLocal={draftStartTimeLocal}
             />
           </section>
@@ -158,11 +167,11 @@ export default async function LeagueSetupPage({
             &larr; Back to League Settings
           </Link>
 
-          {league.draft_status === "setup" ? (
+          {draft.status === "setup" ? (
             <ConfirmButton leagueId={leagueId} />
           ) : (
             <p className="text-right text-sm text-ink/70">
-              This league is already in the {league.draft_status} phase.
+              This league is already in the {draft.status} phase.
             </p>
           )}
         </>

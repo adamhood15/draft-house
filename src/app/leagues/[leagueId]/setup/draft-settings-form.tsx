@@ -36,7 +36,7 @@ export function DraftSettingsForm({
   const action = saveDraftSettings.bind(null, leagueId);
   const [state, formAction] = useActionState(action, initialSettingsState);
   const [timerEnabled, setTimerEnabled] = useState(draftSettings.timer_enabled);
-  // leagues.draft_format is a bare `text`, so a row could hold something this
+  // drafts.type is constrained to a value set, not to this list, so a row could hold something this
   // build no longer offers. Falling back keeps the select from rendering with
   // nothing chosen, which would post an order the commissioner never picked.
   const [orderType, setOrderType] = useState<DraftOrderType>(

@@ -8,7 +8,9 @@ Split out of [REALTIME.md](REALTIME.md) — Row-Level Security policies, the ser
 
 **Status**: Policy set defined below. Apply via a Supabase migration before the first real draft — until then, local dev can run with RLS off for speed.
 
-**Core principle**: draft-mechanics tables are **SELECT-only for clients**. `draft_state`, `picks`, `draft_board`, `rosters`, and `team_pick_assignments` get no client-facing INSERT/UPDATE/DELETE policies at all — every write to them happens through server-side API routes using the Supabase service role key, which bypasses RLS by design. This matches the "Server Authority" principle in [AGENTS.md](../AGENTS.md) and is what actually prevents client-side pick manipulation, not application-layer checks alone.
+**Core principle**: draft-mechanics tables are **SELECT-only for clients**. `draft_picks` and `rosters` get no client-facing INSERT/UPDATE/DELETE policies at all — every write to them happens through server-side code using the Supabase service role key, which bypasses RLS by design. This matches the "Server Authority" principle in [AGENTS.md](../AGENTS.md) and is what actually prevents client-side pick manipulation, not application-layer checks alone.
+
+`drafts` is the one deliberate exception, and it needs a mechanism RLS alone does not have. The commissioner must be able to change the draft settings, and `startDraft`'s guarded `lobby → drafting` update is the mutex that stops two commissioners generating two boards — so the row has to be client-writable. But the same row now carries the live clock. **RLS restricts rows, not columns**, so a policy alone would also let a commissioner set `current_pick_no` straight from the browser and skip the draft engine entirely. A column `GRANT` is what closes that.
 
 **Helper functions** (used throughout the policies below):
 
@@ -27,12 +29,20 @@ $$ LANGUAGE sql SECURITY DEFINER STABLE;
 **Draft-mechanics tables (read-only for clients)**:
 
 ```sql
-CREATE POLICY draft_state_select ON draft_state FOR SELECT USING (is_league_member(league_id));
-CREATE POLICY picks_select ON picks FOR SELECT USING (is_league_member(league_id));
-CREATE POLICY draft_board_select ON draft_board FOR SELECT USING (is_league_member(league_id));
+CREATE POLICY draft_picks_select ON draft_picks FOR SELECT USING (is_league_member(league_id));
 CREATE POLICY rosters_select ON rosters FOR SELECT USING (is_league_member(league_id));
-CREATE POLICY team_pick_assignments_select ON team_pick_assignments FOR SELECT USING (is_league_member(league_id));
--- No write policies on any of the above — see "Core principle" note
+-- No write policies on either of the above — see "Core principle" note
+
+CREATE POLICY drafts_select ON drafts FOR SELECT USING (is_league_member(league_id));
+CREATE POLICY drafts_update ON drafts FOR UPDATE USING (is_commissioner(league_id));
+
+-- The policy above says WHICH ROWS; this says WHICH COLUMNS. Without it, the
+-- commissioner could write the live clock from the browser.
+REVOKE UPDATE ON drafts FROM authenticated;
+GRANT UPDATE (
+  type, status, start_time, pick_timer,
+  allow_pick_trading, auto_draft_enabled, auto_draft_type
+) ON drafts TO authenticated;
 ```
 
 **League & team tables**:
@@ -44,8 +54,8 @@ CREATE POLICY leagues_update ON leagues FOR UPDATE USING (commissioner_id = auth
 CREATE POLICY teams_select ON teams FOR SELECT USING (is_league_member(league_id));
 CREATE POLICY teams_update ON teams FOR UPDATE USING (owner_id = auth.uid() OR is_commissioner(league_id));
 
-CREATE POLICY draft_settings_select ON draft_settings FOR SELECT USING (is_league_member(league_id));
-CREATE POLICY draft_settings_update ON draft_settings FOR UPDATE USING (is_commissioner(league_id));
+-- drafts policies are with the draft-mechanics tables above, since the column
+-- grant is inseparable from them.
 ```
 
 **Chat & reactions** (public within a league):
@@ -55,7 +65,7 @@ CREATE POLICY chat_select ON chat_messages FOR SELECT USING (is_league_member(le
 CREATE POLICY chat_insert ON chat_messages FOR INSERT WITH CHECK (sender_id = auth.uid() AND is_league_member(league_id));
 
 CREATE POLICY reactions_select ON reactions FOR SELECT USING (
-  EXISTS (SELECT 1 FROM picks WHERE picks.id = reactions.pick_id AND is_league_member(picks.league_id))
+  EXISTS (SELECT 1 FROM draft_picks WHERE draft_picks.id = reactions.pick_id AND is_league_member(draft_picks.league_id))
 );
 CREATE POLICY reactions_insert ON reactions FOR INSERT WITH CHECK (user_id = auth.uid());
 CREATE POLICY reactions_delete ON reactions FOR DELETE USING (user_id = auth.uid());
