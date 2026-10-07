@@ -21,6 +21,38 @@ npm run dev                  # http://localhost:3000
 Get the three Supabase values from **Settings → API** in the dashboard. Full setup, including
 seeding a league from Sleeper, is in [DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
+## Screenshots
+
+Signed-out visitors land on the sign-in screen. Everything else sits behind a login.
+
+| Landing | Log in |
+|---|---|
+| ![Landing screen](docs/screenshots/app/landing.png) | ![Log in form](docs/screenshots/app/login.png) |
+
+### Signed in
+
+| Home | Lobby |
+|---|---|
+| ![Home: your leagues](docs/screenshots/app/home.png) | ![Lobby: invite link and team list](docs/screenshots/app/lobby.png) |
+
+| Draft room | Customize team |
+|---|---|
+| ![Live draft board](docs/screenshots/app/draft.png) | ![Team name, image and walk-up song](docs/screenshots/app/team.png) |
+
+| League setup | Player rankings |
+|---|---|
+| ![League and draft settings](docs/screenshots/app/setup.png) | ![Player rankings board](docs/screenshots/app/players.png) |
+
+| Teams | Trades |
+|---|---|
+| ![Teams page (placeholder)](docs/screenshots/app/teams.png) | ![Trades page (placeholder)](docs/screenshots/app/trade.png) |
+
+The Teams and Trades pages are still placeholders, and the lobby's "coming soon" subtitle is
+stale. The invite link in the lobby screenshot is masked.
+
+The design system references (palette, type, components) are in [docs/screenshots/](docs/screenshots/)
+and documented in [DESIGN.md](docs/DESIGN.md).
+
 ## Commands
 
 | Command | What it does |
